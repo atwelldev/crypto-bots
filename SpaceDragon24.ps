@@ -654,7 +654,7 @@ plot(currentSL)
 plot(entryPrice)
 plot(currentTP)
 
-if (can_long or can_short) and na(trade) and canSignal
+if (can_long or can_short) and na(trade)
     entryPrice := close
     currentTP := 1
     currentSL := 0
