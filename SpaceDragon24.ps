@@ -640,11 +640,11 @@ else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + 
     currentTP := 0
     canSignal := true
 
-if can_long and na(trade) and canSignal
+if can_long and na(trade)
     strategy.close("Enter Short")
     strategy.entry("Enter Long", strategy.long)
 
-if can_short and na(trade) and canSignal
+if can_short and na(trade)
     strategy.close("Enter Long")
     strategy.entry("Enter Short", strategy.short)
 
