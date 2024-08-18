@@ -573,94 +573,118 @@ if not na(trade)
 //alertcondition(can_short and na(trade), "Short signal", "Short") - для шорта
 //alertcondition(can_short or can_long and na(trade), "New signal", "Check chart to see signal direction")
 // 0.4
-var float entryPrice = 0
+varip float entryPrice = 0
 varip int currentTP = 0 // для переменных в реальном времени
-var float currentSL = 0
-var string tradeSide = ""
-var bool canSignal = true
+varip float currentSL = na
+varip string tradeSide = ""
+varip bool canSignal = true
+varip float testi = 0
 
 // int StopTPNum = 3 // на каком тейке переводить позицию в безубыток, выставляется в TPsl_percent
 
-// if (tradeSide == "LONG" and close >= entryPrice * (1 + tp1_percent) and currentTP == 1)
-//     currentTP := 2
-//     strategy.close("Enter Long", qty_percent = tp1_percent_fix * 100, immediately = true)
-//     if StopTPNum == 1 
-//         currentSL := tp1_percent
-// else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp2_percent) and currentTP == 2)
-//     currentTP := 3
-//     strategy.close("Enter Long", qty_percent = tp2_percent_fix * 100, immediately = true)
-//     if StopTPNum == 2 
-//         currentSL := tp2_percent
-// else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp3_percent) and currentTP == 3)
-//     currentTP := 4    
-//     strategy.close("Enter Long", qty_percent = tp3_percent_fix * 100, immediately = true)
-//     if StopTPNum == 3 
-//         currentSL := tp3_percent
-// else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp4_percent) and currentTP == 4)
-//     // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
-//     strategy.close("Enter Long", immediately = true)
-//     currentTP := 0
-//     canSignal := true
-// else if (currentSL != 0 and tradeSide == "LONG" and close <= (entryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
-//     strategy.close("Enter Long", immediately = true)
-//     currentTP := 0
-//     canSignal := true
-// else if (currentSL == 0 and tradeSide == "LONG" and close <= entryPrice * (1 - sl_percent))
-//     strategy.close("Enter Long", immediately = true)
-//     currentTP := 0
-//     canSignal := true
+// Long
+if (tradeSide == "LONG" and close >= entryPrice * (1 + tp1_percent) and currentTP == 1)
+    currentTP := 2
+    strategy.exit("Long TP-2", from_entry="Enter Long", limit=entryPrice* (1 + tp2_percent), qty_percent=tp2_percent_fix * 100 )
+    currentSL := tp1_percent
+    // if StopTPNum == 1 
+    //     currentSL := tp1_percent
+else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp2_percent) and currentTP == 2)
+    currentTP := 3
+    strategy.exit("Long TP-3", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), qty_percent=tp3_percent_fix * 100 )
+    currentSL := tp2_percent
+    // if StopTPNum == 2 
+    //     currentSL := tp2_percent
+else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp3_percent) and currentTP == 3)
+    currentTP := 4    
+    strategy.exit("Long TP-4", from_entry="Enter Long", limit=entryPrice* (1 + tp4_percent), qty_percent=tp4_percent_fix * 100 )
+    currentSL := tp3_percent
+    // if StopTPNum == 3 
+    //     currentSL := tp3_percent
+else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp4_percent) and currentTP == 4)
+    // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
+    strategy.cancel_all()
+    currentTP := 0
+    canSignal := true
+else if (currentSL > 0 and tradeSide == "LONG" and close <= (entryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
+    strategy.cancel_all()
+    strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop=(entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
+    currentTP := 0
+    canSignal := true
+else if (currentSL == 0 and tradeSide == "LONG" and close <= entryPrice * (1 - sl_percent))
+    strategy.cancel_all()
+    strategy.exit("Long SL", from_entry="Enter Long", stop=entryPrice* (1 - sl_percent), qty_percent=100 )
+    // strategy.close("Enter Long", immediately = true)
+    currentTP := 0
+    canSignal := true
+
+// Short
+if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp1_percent) and currentTP == 1)
+    currentTP := 2
+    strategy.exit("Short TP-2", from_entry="Enter Short", limit=entryPrice* (1 - tp2_percent), qty_percent=tp2_percent_fix * 100 )
+    currentSL := tp1_percent
+    // if StopTPNum == 1 
+    //     currentSL := tp1_percent
+else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp2_percent) and currentTP == 2)
+    currentTP := 3
+    strategy.exit("Short TP-3", from_entry="Enter Short", limit=entryPrice* (1 - tp3_percent), qty_percent=tp3_percent_fix * 100 )
+    currentSL := tp2_percent
+    // if StopTPNum == 2 
+    //     currentSL := tp2_percent
+else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp3_percent) and currentTP == 3)
+    currentTP := 4    
+    strategy.exit("Short TP-4", from_entry="Enter Short", limit=entryPrice* (1 - tp4_percent), qty_percent=tp4_percent_fix * 100 )
+    currentSL := tp3_percent
+    // if StopTPNum == 3 
+    //     currentSL := tp3_percent
+else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp4_percent) and currentTP == 4)
+    // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
+    strategy.cancel_all()
+    currentTP := 0
+    canSignal := true
+else if (currentSL > 0 and tradeSide == "SHORT" and close >= (entryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
+    strategy.cancel_all()
+    strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop=(entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
+    currentTP := 0
+    canSignal := true
+else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + sl_percent))
+    strategy.cancel_all()
+    strategy.exit("Short SL", from_entry="Enter Short", stop=entryPrice* (1 + sl_percent), qty_percent=100 )
+    // strategy.close("Enter Long", immediately = true)
+    currentTP := 0
+    canSignal := true
 
 
-// if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp1_percent) and currentTP == 1)
-//     currentTP := 2
-//     strategy.close("Enter Short", qty_percent = tp1_percent_fix * 100, immediately = true)
-//     if StopTPNum == 1 
-//         currentSL := tp1_percent
-// else if (tradeSide == "SHORT" and close <= entryPrice * (1 -  tp2_percent) and currentTP == 2)
-//     currentTP := 3
-//     strategy.close("Enter Short", qty_percent = tp2_percent_fix * 100, immediately = true)
-//     if StopTPNum == 2 
-//         currentSL := tp2_percent
-// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp3_percent) and currentTP == 3)
-//     currentTP := 4
-//     strategy.close("Enter Short", qty_percent = tp3_percent_fix * 100, immediately = true)
-//     if StopTPNum == 3 
-//         currentSL := tp3_percent
-// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp4_percent) and currentTP == 4)
-//     // strategy.close("Enter Short", qty_percent = tp4_percent_fix * 100)
-//     strategy.close("Enter Short", immediately = true)
-//     currentTP := 0
-//     canSignal := true
-// else if (currentSL != 0 and tradeSide == "SHORT" and close >= (entryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
-//     strategy.close("Enter Short", immediately = true)
-//     currentTP := 0
-//     canSignal := true
-// else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + sl_percent))
-//     strategy.close("Enter Short", immediately = true)
-//     currentTP := 0
-//     canSignal := true
-
-if can_long and na(trade)
+if can_long and na(trade) and canSignal
     strategy.close("Enter Short")
     strategy.entry("Enter Long", strategy.long)
-    strategy.exit("Exit Long", from_entry="Enter Long", limit=close* (1 + tp1_percent), qty_percent=tp1_percent_fix * 100 )
-    strategy.exit("Exit Long", from_entry="Enter Long", limit=close* (1 + tp2_percent), qty_percent=tp2_percent_fix * 100 )
-    strategy.exit("Exit Long", from_entry="Enter Long", limit=close* (1 + tp3_percent), qty_percent=tp3_percent_fix * 100 )
-    strategy.exit("Exit Long", from_entry="Enter Long", limit=close* (1 + tp4_percent), qty_percent=100 )
+    entryPrice := close
+    strategy.exit("Long TP-1", from_entry="Enter Long", limit=entryPrice* (1 + tp1_percent), qty_percent=tp1_percent_fix * 100)
 
-if can_short and na(trade)
+// entryPrice := close
+    // strategy.exit("Long SL", from_entry="Enter Long", stop=entryPrice* (1 - sl_percent))
+    // strategy.exit("Long TP-1", from_entry="Enter Long", limit=entryPrice* (1 + tp1_percent), qty_percent=tp1_percent_fix * 100 )
+    // strategy.exit("Long TP-2", from_entry="Enter Long", limit=entryPrice* (1 + tp2_percent), qty_percent=tp2_percent_fix * 100 )
+    // strategy.exit("Long TP-3", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), qty_percent=tp3_percent_fix * 100 )
+    // strategy.exit("Long TP-4", from_entry="Enter Long", limit=entryPrice* (1 + tp4_percent), qty_percent=100 )
+
+if can_short and na(trade) and canSignal
     strategy.close("Enter Long")
     strategy.entry("Enter Short", strategy.short)
-    strategy.exit("Exit Short", from_entry="Enter Short", limit=close* (1 - tp1_percent))
+    entryPrice := close
+    strategy.exit("Short TP-1", from_entry="Enter Short", limit=entryPrice* (1 - tp1_percent), qty_percent=tp1_percent_fix * 100)
 
-plot(sl_percent)
-plot(TPsl_percent)
+plot(canSignal ? 1.0 : 0)
+plot(can_long ? 1.0 : 0)
+plot(na(trade) ? 1.0 : 0)
 plot(currentSL)
+plot(TPsl_percent)
 plot(entryPrice)
 plot(currentTP)
 
-if (can_long or can_short) and na(trade)
-    entryPrice := close
+
+// can_long or 
+if (can_long or can_short) and na(trade) and canSignal
     currentTP := 1
     currentSL := 0
     canSignal := false
