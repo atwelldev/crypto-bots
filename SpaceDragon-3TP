@@ -605,7 +605,7 @@ else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp2_percent) and cur
     currentTP := 3
     currentSL := tp2_percent
     strategy.cancel_all()
-    strategy.exit("Long TP-3/Short Trail", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=100 )
+    strategy.exit("Long TP-3/Long Trail", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=100 )
     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 2 
     //     currentSL := tp2_percent
