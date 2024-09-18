@@ -27,6 +27,7 @@ type Strategy_settings
 	bool fixed_stop = false
 	float sl_percent = 0
     float TPsl_percent = 0
+    int trailOffset = 20
     int StopTPNum = 1
 
 type Trade
@@ -220,6 +221,7 @@ selector(string strategy_name) =>
 			strategy_settings.sl_percent := 0.0
             strategy_settings.TPsl_percent := 0.0
             strategy_settings.StopTPNum := 1
+            strategy_settings.trailOffset := 20
 		"UNIVERSAL 15m" => 
 			strategy_settings.sensitivity := 20
 			strategy_settings.risk_percent := 1
@@ -303,6 +305,7 @@ float tp4_percent_fix = 0
 bool fixed_stop = false
 float sl_percent = 0
 float TPsl_percent = 0
+int trailOffset = 70
 int StopTPNum = 0
 
 strategy_input = input.string(title = "STRATEGY", options = [
@@ -350,8 +353,11 @@ initial_deposit_input = input.float(title = "Initial deposit", defval = 1000, st
 // STOPLOSS
 fixed_stop_input = input.bool(defval = false, title = "Fixed stoploss %", group = STOP_LOSS, tooltip = "EN:\nIf choosed: stoploss will be calculated manually \nIf NOT choosed: stoploss will be calculated automatic\nRU:\nЕсли выбрано: стоп будет рассчитываться вручную \nЕсли НЕ выбрано: стоп будет рассчитываться автоматически")
 sl_percent_input = input.float(title="SL %", step = 0.1, defval=0.00, group = STOP_LOSS)
-TPsl_percent_input = input.float(title="Take profit SL %", step = 0.1, defval=0.00, group = STOP_LOSS)
-StopTPNum_input = input.int(title="С какого тейка безубыток (1-3)", defval = 1, group = STOP_LOSS)
+// TPsl_percent_input = input.float(title="Take profit SL % *НЕ ТРОГАТЬ", step = 0.1, defval=0.00, group = STOP_LOSS)
+// StopTPNum_input = input.int(title="С какого тейка безубыток (1-3) *НЕ ТРОГАТЬ", defval = 1, group = STOP_LOSS)
+trailOffset_input = input.int(title="Кол-во тиков для трейлинга", defval = 20, group = STOP_LOSS)
+TPsl_percent_input = 0
+StopTPNum_input = 0
 
 // TAKE PROFITS
 tp1_percent_input = input.float(title="TP 1", step = 0.05, defval=1.00, minval = 0, group = TAKE_PROFITS, inline = "2.2")
@@ -359,9 +365,11 @@ tp1_percent_fix_input = input.float(title = "Fix %", step = 5, defval=40, group 
 tp2_percent_input = input.float(title="TP 2", step = 0.05, defval=2.00, minval = 0, group = TAKE_PROFITS, inline = "2.3")
 tp2_percent_fix_input = input.float(title = "Fix %", step = 5, defval=30, group = TAKE_PROFITS, inline = "2.3")
 tp3_percent_input = input.float(title="TP 3", step = 0.05, defval=3.00, minval = 0, group = TAKE_PROFITS, inline = "2.4")
-tp3_percent_fix_input = input.float(title = "Fix %", step = 5, defval=20, group = TAKE_PROFITS, inline = "2.4")
-tp4_percent_input = input.float(title="TP 4", step = 0.05, defval=4.00, minval = 0, group = TAKE_PROFITS, inline = "2.5")
-tp4_percent_fix_input = input.float(title = "Fix %", step = 5, defval=10, group = TAKE_PROFITS, inline = "2.5")
+tp3_percent_fix_input = input.float(title = "Fix %", step = 5, defval=100, group = TAKE_PROFITS, inline = "2.4")
+// tp4_percent_input = input.float(title="TP 4", step = 0.05, defval=4.00, minval = 0, group = TAKE_PROFITS, inline = "2.5")
+tp4_percent_input = 0
+// tp4_percent_fix_input = input.float(title = "Fix %", step = 5, defval=10, group = TAKE_PROFITS, inline = "2.5")
+tp4_percent_fix_input = 0
 
 // RSI
 show_rsi = input.bool(defval = false, title = "Show", group = rsi_group, inline = "3.1")
@@ -415,7 +423,7 @@ var float dep = initial_deposit_input
 //-----------------------------------------------------MAIN------------------------------------------------------------\\
 // STRATEGY
 
-strategy_s := strategy_input == "MANUAL" ? Strategy_settings.new(sensitivity_input, risk_percent_input, break_even_target_input, tp1_percent_input, tp1_percent_fix_input, tp2_percent_input, tp2_percent_fix_input, tp3_percent_input, tp3_percent_fix_input, tp4_percent_input, tp4_percent_fix_input, fixed_stop_input, sl_percent_input, TPsl_percent_input, StopTPNum_input) : selector(strategy_input)
+strategy_s := strategy_input == "MANUAL" ? Strategy_settings.new(sensitivity_input, risk_percent_input, break_even_target_input, tp1_percent_input, tp1_percent_fix_input, tp2_percent_input, tp2_percent_fix_input, tp3_percent_input, tp3_percent_fix_input, tp4_percent_input, tp4_percent_fix_input, fixed_stop_input, sl_percent_input, TPsl_percent_input, trailOffset_input, StopTPNum_input) : selector(strategy_input)
 
 sensitivity := strategy_s.sensitivity
 risk_percent := strategy_s.risk_percent
@@ -432,6 +440,8 @@ fixed_stop := strategy_s.fixed_stop
 sl_percent := strategy_s.sl_percent
 TPsl_percent := strategy_s.TPsl_percent
 StopTPNum := strategy_s.StopTPNum
+trailOffset := strategy_s.trailOffset
+
 
 sensitivity *= 10
 tp1_percent /= 100
@@ -587,85 +597,93 @@ if (tradeSide == "LONG" and close >= entryPrice * (1 + tp1_percent) and currentT
     currentTP := 2
     currentSL := tp1_percent
     strategy.cancel_all()
-    strategy.exit("Long TP-2", from_entry="Enter Long", stop = (entryPrice * (1 + currentSL)) * (1 - TPsl_percent), limit=entryPrice* (1 + tp2_percent), qty_percent=tp2_percent_fix * 100 )
-    strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop = (entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
+    strategy.exit("Long TP-2", from_entry="Enter Long", limit=entryPrice* (1 + tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
+    strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 1 
     //     currentSL := tp1_percent
 else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp2_percent) and currentTP == 2)
     currentTP := 3
     currentSL := tp2_percent
     strategy.cancel_all()
-    strategy.exit("Long TP-3", from_entry="Enter Long", stop = (entryPrice * (1 + currentSL)) * (1 - TPsl_percent), limit=entryPrice* (1 + tp3_percent), qty_percent=100 )
-    strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop = (entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
+    strategy.exit("Long TP-3/Short Trail", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=100 )
+    strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 2 
     //     currentSL := tp2_percent
-else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp3_percent) and currentTP == 3)
-    strategy.cancel_all()
-    currentTP := 0
-    canSignal := true
-    // strategy.exit("Long TP-4", from_entry="Enter Long", stop = (entryPrice * (1 + currentSL)) * (1 - TPsl_percent), limit=entryPrice* (1 + tp4_percent), qty_percent=tp4_percent_fix * 100 )
-    // strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop = (entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
+// else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp3_percent) and currentTP == 3)
+//     currentTP := 4    
+//     currentSL := tp3_percent
+//     strategy.cancel_all()
+//     strategy.exit("Long TP-4", from_entry="Enter Long", limit=entryPrice* (1 + tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
+//     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 3 
     //     currentSL := tp3_percent
 // else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp4_percent) and currentTP == 4)
-//     // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
-//     strategy.cancel_all()
-//     currentTP := 0
-//     canSignal := true
-else if (currentSL > 0 and tradeSide == "LONG" and close <= (entryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
-    strategy.cancel_all()
+    // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
+    // strategy.cancel_all()
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL > 0 and tradeSide == "LONG" and close <= (entryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
+    // strategy.cancel_all()
     // strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop=(entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
-    currentTP := 0
-    canSignal := true
-else if (currentSL == 0 and tradeSide == "LONG" and close <= entryPrice * (1 - sl_percent))
-    strategy.cancel_all()
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL == 0 and tradeSide == "LONG" and close <= entryPrice * (1 - sl_percent))
+    // strategy.cancel_all()
     // strategy.exit("Long SL", from_entry="Enter Long", stop=entryPrice* (1 - sl_percent), qty_percent=100 )
     // strategy.close("Enter Long", immediately = true)
-    currentTP := 0
-    canSignal := true
+    // currentTP := 0
+    // canSignal := true
 
 // Short
 if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp1_percent) and currentTP == 1)
     currentTP := 2
     currentSL := tp1_percent
     strategy.cancel_all()
-    strategy.exit("Short TP-2", from_entry="Enter Short", stop = (entryPrice * (1 - currentSL)) * (1 + TPsl_percent),limit=entryPrice* (1 - tp2_percent), qty_percent=tp2_percent_fix * 100 )
-    strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop = (entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
+    strategy.exit("Short TP-2", from_entry="Enter Short", limit=entryPrice* (1 - tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
+    strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 1 
     //     currentSL := tp1_percent
 else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp2_percent) and currentTP == 2)
     currentTP := 3
     currentSL := tp2_percent
     strategy.cancel_all()
-    strategy.exit("Short TP-3", from_entry="Enter Short", stop = (entryPrice * (1 - currentSL)) * (1 + TPsl_percent),limit=entryPrice* (1 - tp3_percent), qty_percent=100 )
-    strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop = (entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
+    strategy.exit("Short TP-3/Short Trail", from_entry="Enter Short", limit=entryPrice* (1 - tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=100 )
+    strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 2 
     //     currentSL := tp2_percent
-else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp3_percent) and currentTP == 3)
-    strategy.cancel_all()
-    // strategy.exit("Short TP-4", from_entry="Enter Short", stop = (entryPrice * (1 - currentSL)) * (1 + TPsl_percent),limit=entryPrice* (1 - tp4_percent), qty_percent=tp4_percent_fix * 100 )
-    // strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop = (entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
-    currentTP := 0
-    canSignal := true
+// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp3_percent) and currentTP == 3)
+//     currentTP := 4   
+//     currentSL := tp3_percent 
+//     strategy.cancel_all()
+//     strategy.exit("Short TP-4", from_entry="Enter Short", limit=entryPrice* (1 - tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
+//     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 3 
     //     currentSL := tp3_percent
 // else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp4_percent) and currentTP == 4)
-//     // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
-//     strategy.cancel_all()
-//     currentTP := 0
-//     canSignal := true
-else if (currentSL > 0 and tradeSide == "SHORT" and close >= (entryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
-    strategy.cancel_all()
+    // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
+    // strategy.cancel_all()
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL > 0 and tradeSide == "SHORT" and close >= (entryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
+    // strategy.cancel_all()
     // strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop=(entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
-    currentTP := 0
-    canSignal := true
-else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + sl_percent))
-    strategy.cancel_all()
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + sl_percent))
+    // strategy.cancel_all()
     // strategy.exit("Short SL", from_entry="Enter Short", stop=entryPrice* (1 + sl_percent), qty_percent=100 )
     // strategy.close("Enter Long", immediately = true)
+    // currentTP := 0
+    // canSignal := true
+
+
+
+if strategy.opentrades > 0
+    canSignal := false
+else 
+    strategy.cancel_all()
     currentTP := 0
     canSignal := true
-
 
 if can_long and na(trade) and canSignal
     strategy.close("Enter Short")
@@ -694,6 +712,7 @@ plot(currentSL)
 plot(TPsl_percent)
 plot(entryPrice)
 plot(currentTP)
+
 
 
 // can_long or 
