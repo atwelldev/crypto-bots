@@ -687,7 +687,7 @@ if can_long and na(trade) and canSignal
     strategy.entry("Enter Long", strategy.long)
     entryPrice := close
     strategy.exit("Long TP-1", from_entry="Enter Long", stop = entryPrice* (1 - sl_percent), limit=entryPrice* (1 + tp1_percent), qty_percent=tp1_percent_fix * 100)
-    strategy.exit("Short Trail", from_entry="Enter Short", trail_price = entryPrice* (1 - sl_percent),trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+    strategy.exit("Long Trail", from_entry="Enter Long", trail_price = entryPrice* (1 - sl_percent),trail_points = 0, trail_offset = trailOffset, qty_percent=100)
 
     strategy.exit("Long SL", from_entry="Enter Long", stop = entryPrice* (1 - sl_percent), qty_percent=100)
 // entryPrice := close
