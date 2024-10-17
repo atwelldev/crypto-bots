@@ -366,7 +366,7 @@ tp4_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=10, gro
 fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\nru: Фиксированный или автоматический")
 sl_percent_input = input.float(title="Stoploss (%)", step = 0.1, defval=0.1, group = STOP_LOSS)
 trailPercent_input = input.float(title="Trailing (%)", step = 0.05, defval = 0.1, group = STOP_LOSS)
-trailTP = input.int(title="TP-num for trailing ", options = [0, 1, 2, 3], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing *0 - from start\nru: Номер тейка, запускающий трэйлинг *0 - со старта")
+trailTP = input.int(title="TP-num for trailing ", options = [1, 2, 3], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing *0 - from start\nru: Номер тейка, запускающий трэйлинг *0 - со старта")
 // tooltip = "" - подсказка
 
 // RSI
