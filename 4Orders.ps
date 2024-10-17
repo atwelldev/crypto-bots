@@ -532,19 +532,19 @@ if not na(trade)
     // FILLING
     if fill_positions
         if trade.tp1_hit
-            linefill.new(entry_line, tp1_line, color = color.new(color.yellow, 85))
+            linefill.new(entry_line, tp1_line, color = color.new(color.green, 85))
         if trade.tp2_hit
-            linefill.new(tp1_line, tp2_line, color = color.new(color.yellow, 85))
+            linefill.new(tp1_line, tp2_line, color = color.new(color.green, 85))
         if trade.tp3_hit
-            linefill.new(tp2_line, tp3_line, color = color.new(color.yellow, 85))
+            linefill.new(tp2_line, tp3_line, color = color.new(color.green, 85))
         if trade.tp4_hit
-            linefill.new(tp3_line, tp4_line, color = color.new(color.yellow, 85))
+            linefill.new(tp3_line, tp4_line, color = color.new(color.green, 85))
         if trade.sl_hit
-            linefill.new(sl_line, entry_line, color = color.new(color.purple, 85))
+            linefill.new(sl_line, entry_line, color = color.new(color.red, 85))
         if trade.force_closed
             close_line := line.new(x1=trade.start_bar_index, y1=trade.close_price, x2=bar_index, y2=trade.close_price, color=color.white, style = line_style, width = 2)
             if trade.profit <= 0
-                linefill.new(close_line, entry_line, color = color.new(color.purple, 85))
+                linefill.new(close_line, entry_line, color = color.new(color.red, 85))
 
     if trade.is_closed
         dep := (trade.profit / 100 * dep) + dep
