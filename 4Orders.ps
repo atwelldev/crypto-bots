@@ -279,7 +279,7 @@ tp_sl_entry_transparent = 30
 color tp_color = color.new(color.green, tp_sl_entry_transparent)
 color entry_color = color.rgb(120, 123, 134, tp_sl_entry_transparent)
 color sl_color = color.new(color.red, tp_sl_entry_transparent)
-line_style = line.style_dotted
+line_style = line.style_solid
 
 
 //@version=5
@@ -339,7 +339,7 @@ strategy_input = "MANUAL"
 
 
 // POSITION
-strDirection = input.string(title = "Entry directions", options = ["long/short","long","short"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\nru: Доступные направления позиции")
+strDirection = input.string(title = "Entry directions", options = ["long/short","only long","only short"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\nru: Доступные направления позиции")
 sensitivity_input = input.float(title = 'Sensitive of strategy', step = 0.1, defval = 12, group = POSITION)
 start_date_input = input.time(defval = timestamp("1 June 2023"), title = "Calculating date", group = POSITION)
 
@@ -374,9 +374,9 @@ trailTP = input.int(title="TP-num for trailing ", options = [1, 2, 3], defval = 
 show_rsi = false
 
 useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group, inline = "3.1")
-overbought = input(title="Overbought", defval=78, group = rsi_group, inline = "3.3")
-oversold = input(title="Oversold", defval=22, group = rsi_group, inline = "3.3")
-len = input(title="Length", defval=14, group = rsi_group, inline = "3.2")
+overbought = input(title="Overbought (for long)", defval=78, group = rsi_group, inline = "3.3")
+oversold = input(title="Oversold (for short)", defval=22, group = rsi_group, inline = "3.3")
+len = input(title="Length (bars)", defval=14, group = rsi_group, inline = "3.2")
 
 // INFO PANEL
 // show_profit_panel = input.bool(defval = true, title = "Show profit panel", group = info_panel_group)
@@ -526,8 +526,8 @@ if not na(trade)
         
     lable_at_signal.set_x(int(math.avg(bar_index, trade.start_bar_index)))
     sign = trade.profit >= 0 ? "+" : na
-    lable_at_signal.set_text(sign + str.tostring(trade.profit, "#.##") + "%")
-    lable_at_signal.set_color(trade.profit >= 0 ? color.green : color.red)
+    // lable_at_signal.set_text(sign + str.tostring(trade.profit, "#.##") + "%")
+    // lable_at_signal.set_color(trade.profit >= 0 ? color.green : color.red)
 
     // FILLING
     if fill_positions
@@ -691,7 +691,7 @@ else
     strategy.cancel_all()
     canSignal := true
 
-if can_long and na(trade) and canSignal and strDirection != "short" and (ta.rsi(close, len) >= overbought or useRSI == false)
+if can_long and na(trade) and canSignal and strDirection != "only short" and (ta.rsi(close, len) >= overbought or useRSI == false)
     strategy.close("Enter Short")
     strategy.entry("Enter Long", strategy.long)
     entryPrice := close
@@ -724,7 +724,7 @@ if can_long and na(trade) and canSignal and strDirection != "short" and (ta.rsi(
     if tp4_percent_fix != 0
         strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
-if can_short and na(trade) and canSignal and strDirection != "long" and (ta.rsi(close, len) <= oversold or useRSI == false)
+if can_short and na(trade) and canSignal and strDirection != "only long" and (ta.rsi(close, len) <= oversold or useRSI == false)
     strategy.close("Enter Long")
     strategy.entry("Enter Short", strategy.short)
     entryPrice := close
@@ -764,9 +764,9 @@ if can_short and na(trade) and canSignal and strDirection != "long" and (ta.rsi(
 // plot(entryPrice)
 // plot(math.ceil(trailOffset))
 
-if strDirection == "long"
+if strDirection == "only long"
     can_short := false 
-else if strDirection == "short"
+else if strDirection == "only short"
     can_long := false
 
 // can_long or  or can_short
@@ -810,7 +810,7 @@ if ( (can_long and (ta.rsi(close, len) >= overbought or useRSI == false)) or (ca
         tp3_label := label.new(bar_index, trade.tp3_price, str.tostring(trade.tp3_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
         tp4_line    := line.new(x1=trade.start_bar_index, y1=trade.tp4_price, x2=bar_index, y2=trade.tp4_price, color=tp_color, style = line_style, width = 2)
         tp4_label := label.new(bar_index, trade.tp4_price, str.tostring(trade.tp4_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
-        lable_at_signal := label.new(bar_index, is_long_trend ? trade.tp4_price * 1.004 : trade.tp4_price * 0.996, "", style = label.style_label_center, textcolor = color.white)
+        // lable_at_signal := label.new(bar_index, is_long_trend ? trade.tp4_price * 1.004 : trade.tp4_price * 0.996, "", style = label.style_label_center, textcolor = color.white)
     // For long   
     // if ta.crossunder(trade.break_even_price, lastPrice)
     //     strategy.close("Enter Long")
