@@ -276,9 +276,9 @@ color low_best_fill_color = color.rgb(255, 54, 54, fill_best_transparend)
 color low_worst_fill_color = color.rgb(255, 43, 43, fill_worst_transparend)
 
 tp_sl_entry_transparent = 30
-color tp_color = color.new(color.green, tp_sl_entry_transparent)
+color tp_color = color.new(color.yellow, tp_sl_entry_transparent)
 color entry_color = color.rgb(120, 123, 134, tp_sl_entry_transparent)
-color sl_color = color.new(color.red, tp_sl_entry_transparent)
+color sl_color = color.new(color.purple, tp_sl_entry_transparent)
 line_style = line.style_solid
 
 
@@ -491,7 +491,7 @@ else
 is_trend_change := is_short_trend_started or is_long_trend_started
 // plotshape(is_long_trend and is_long_trend_started ? imba_trend_line : na, title="Long", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
 // plotshape(is_short_trend and is_short_trend_started ? imba_trend_line : na, title="Short", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
-plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 3)
+plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 1)
 
 // LOGIC
 if not na(trade)
