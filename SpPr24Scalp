@@ -276,9 +276,9 @@ color low_best_fill_color = color.new(color.red, fill_best_transparend)
 color low_worst_fill_color = color.new(color.red, fill_worst_transparend)
 
 tp_sl_entry_transparent = 30
-color tp_color = color.new(color.lime, tp_sl_entry_transparent)
+color tp_color = color.new(color.yellow, tp_sl_entry_transparent)
 color entry_color = color.rgb(120, 123, 134, tp_sl_entry_transparent)
-color sl_color = color.new(color.red, tp_sl_entry_transparent)
+color sl_color = color.new(color.orange, tp_sl_entry_transparent)
 line_style = line.style_solid
 
 
