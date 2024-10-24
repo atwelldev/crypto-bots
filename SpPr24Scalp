@@ -364,7 +364,7 @@ tp4_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=10, gro
 
 // STOPLOSS & TRAIL
 fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\nru: Фиксированный или автоматический")
-sl_percent_input = input.float(title="Stoploss (%)", step = 0.1, defval=0.1, group = STOP_LOSS)
+sl_percent_input = input.float(title="Stoploss (%)", step = 0.1, defval=1, group = STOP_LOSS)
 trailPercent_input = input.float(title="Trailing (%)", step = 0.05, defval = 0.1, group = STOP_LOSS)
 trailTP = input.int(title="TP-num for trailing ", options = [1, 2, 3], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing *0 - from start\nru: Номер тейка, запускающий трэйлинг *0 - со старта")
 trailWithPercent = input.bool(title = "Trail after % of price", defval = false, group = STOP_LOSS, tooltip = "Trail will only start with % of price. TP-num will not affect")
@@ -376,8 +376,8 @@ trailStartPercent /= 100
 // EMA
 useEMA = input.bool(defval = false, title = "Use EMA", group = "EMA")
 averageData = input.source(defval = close, title="Average price source", tooltip = "Close - current market price", group = "EMA")
-fastLength = input.int(defval = 10, title="Fast average length", step=1, group = "EMA")
-slowLength = input.int(defval = 50, title="Slow average length", step=1, group = "EMA")
+fastLength = input.int(defval = 10, title="Fast average length", step=1, group = "EMA", minval = 0)
+slowLength = input.int(defval = 50, title="Slow average length", step=1, group = "EMA", minval = 0)
 
 // RSI
 // show_rsi = input.bool(defval = false, title = "Show", group = rsi_group, inline = "3.1")
@@ -501,7 +501,7 @@ else
 is_trend_change := is_short_trend_started or is_long_trend_started
 // plotshape(is_long_trend and is_long_trend_started ? imba_trend_line : na, title="Long", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
 // plotshape(is_short_trend and is_short_trend_started ? imba_trend_line : na, title="Short", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
-plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 1)
+plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 2, title = "Trend line")
 
 // LOGIC
 if not na(trade)
@@ -707,7 +707,9 @@ slowAverage = ta.ema(averageData, slowLength)
 
 longEMA = useEMA == false or (close > fastAverage and fastAverage > slowAverage)
 shortEMA = useEMA == false or (close < fastAverage and fastAverage < slowAverage)
-// bgcolor(color = , title="EMA Background")
+
+plot(useEMA ? fastAverage : na, color = color.blue, linewidth = 1, title = "Fast average")
+plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Slow average")
 
 // RSI
 longRSI = ta.rsi(close, len) >= overbought or useRSI == false
@@ -900,7 +902,7 @@ if show_profit_panel
 
 var table strategy_table = na
 if show_strategy_panel
-    strategy_table := table.new(position.top_right, 5, 6, border_color = color.gray)
+    strategy_table := table.new(position.top_right, 5, 7, border_color = color.gray)
     // table.cell(strategy_table, 1, 0, "SpaceDragon24: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
     table.cell(strategy_table, 1, 0, "SpDr24Scalp," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
     table.cell(strategy_table, 2, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
@@ -913,10 +915,12 @@ if show_strategy_panel
     table.cell(strategy_table, 2, 2, str.tostring(sensitivity / 10), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 3, "Use RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 3, str.tostring(useRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 4, "Trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 4, str.tostring(trailPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 5, "Fixed stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 5, str.tostring(fixed_stop), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 4, "Use EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 4, str.tostring(useEMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 5, "Trail offset %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 5, str.tostring(trailPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 6, "Fixed stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 6, str.tostring(fixed_stop), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 
     table.cell(strategy_table, 3, 1, "TP-1:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
     table.cell(strategy_table, 4, 1, str.tostring(tp1_percent * 100) + "%" + " (" + str.tostring(tp1_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
@@ -926,5 +930,7 @@ if show_strategy_panel
     table.cell(strategy_table, 4, 3, str.tostring(tp3_percent * 100) + "%" + " (" + str.tostring(tp3_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 4, "TP-4:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
     table.cell(strategy_table, 4, 4, str.tostring(tp4_percent * 100) + "%" + " (" + str.tostring(tp4_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 5, "Stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 4, 5, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 5, "Trail TP:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 4, 5, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 6, "Stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 4, 6, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
