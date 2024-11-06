@@ -283,7 +283,7 @@ line_style = line.style_dotted
 
 
 //@version=5
-strategy(title='SpDr24Scalp', shorttitle='SpDr24Scalp', calc_on_every_tick = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title='SpDr24Scalp', shorttitle='SpDr24Scalp', calc_on_every_tick = false, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
 import TradingView/Strategy/3
 
 //---------------------------------------------------SETTINGS----------------------------------------------------------\\
@@ -339,7 +339,10 @@ strategy_input = "MANUAL"
 
 
 // POSITION
-strDirection = input.string(title = "Entry directions", options = ["long/short","only long","only short"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\nru: Доступные направления позиции")
+posMode = input.string(title = "Entry directions", options = ["long/short","only long","only short", "auto"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\nru: Доступные направления позиции")
+int  autoLength     = input.int(240, title="Trend length for auto mode (bars)", group = POSITION) // Length for the moving average calculations
+
+
 sensitivity_input = input.float(title = 'Sensitive of strategy', step = 0.1, defval = 12, group = POSITION)
 start_date_input = input.time(defval = timestamp("1 June 2023"), title = "Calculating date", group = POSITION)
 
@@ -353,6 +356,7 @@ break_even_target_input = "1"
 initial_deposit_input = 1000
 
 // TAKE PROFITS
+onceTP = input.bool(title="Use only 1 takeprofit (Takeprofit-1)", defval=false, group = TAKE_PROFITS)
 tp1_percent_input = input.float(title="Takeprofit-1", step = 0.05, defval=1, minval = 0, group = TAKE_PROFITS, inline = "2.2")
 tp1_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=40, group = TAKE_PROFITS, inline = "2.2")
 tp2_percent_input = input.float(title="Takeprofit-2", step = 0.05, defval=2, minval = 0, group = TAKE_PROFITS, inline = "2.3")
@@ -361,6 +365,7 @@ tp3_percent_input = input.float(title="Takeprofit-3", step = 0.05, defval=3, min
 tp3_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=20, group = TAKE_PROFITS, inline = "2.4")
 tp4_percent_input = input.float(title="Takeprofit-4", step = 0.05, defval=4, minval = 0, group = TAKE_PROFITS, inline = "2.5")
 tp4_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=10, group = TAKE_PROFITS, inline = "2.5")
+
 
 // STOPLOSS & TRAIL
 fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\nru: Фиксированный или автоматический")
@@ -388,6 +393,15 @@ overbought = input(title="Overbought (for long)", defval=78, group = rsi_group, 
 oversold = input(title="Oversold (for short)", defval=22, group = rsi_group, inline = "3.3")
 len = input(title="Length (bars)", defval=14, group = rsi_group, inline = "3.2")
 
+
+// MAX DRAWDOWN & PROFIT
+useMaxDrawdown = input.bool(defval = false, title = "Use max drawdown", group = "MAX DRAWDOWN & PROFIT")
+maxDrawdown = input.float(defval = 0, title = "Max drawdown (%)", group = "MAX DRAWDOWN & PROFIT", step = 0.05, minval = 0)
+
+useMaxProfit = input.bool(defval = false, title = "Use max profit", group = "MAX DRAWDOWN & PROFIT")
+maxProfit = input.float(defval = 0, title = "Max profit (%)", group = "MAX DRAWDOWN & PROFIT", step = 0.05, minval = 0)
+
+
 // INFO PANEL
 // show_profit_panel = input.bool(defval = true, title = "Show profit panel", group = info_panel_group)
 show_profit_panel = false
@@ -395,9 +409,107 @@ show_strategy_panel = input.bool(defval = true, title = "Show settings panel", g
 // show_old_panel = input.bool(defval = false, title = "Show old panel", group = info_panel_group)
 show_old_panel = false
 
+
 // DEV
 // show_dev_labels = input.bool(defval = false, title = "Show", group = dev_settings, tooltip = "Shows all possible events")
 show_dev_labels = false
+
+
+
+
+// Zero lag
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙐𝙎𝙀𝙍 𝙄𝙉𝙋𝙐𝙏𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+// bool show_levl  = input.bool(true, "Trend Levels") // Toggle to show trend levels
+
+varip strDirection = ""
+
+    
+// Colors for the trend levels
+color up = color.green
+color dn = color.red
+
+var box1         = box(na) // Variable to store the box
+series float atr = ta.atr(200) // Average True Range (ATR) for trend levels
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙄𝙉𝘿𝙄𝘾𝘼𝙏𝙊𝙍 𝘾𝘼𝙇𝘾𝙐𝙇𝘼𝙏𝙄𝙊𝙉𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+
+series float emaValue   = ta.ema(close, autoLength) // EMA of the closing price
+series float correction = close + (close - emaValue) // Correction factor for zero-lag calculation
+series float zlma       = ta.ema(correction, autoLength) // Zero-Lag Moving Average (ZLMA)
+
+bool  signalUp          = ta.crossover(zlma, emaValue) // Signal for bullish crossover
+bool  signalDn          = ta.crossunder(zlma, emaValue) // Signal for bearish crossunder
+
+// Determine the color of ZLMA based on its direction
+color zlma_color        = zlma > zlma[3] ? up : zlma < zlma[3] ? dn : na
+color ema_col           = emaValue < zlma ? up : dn // Determine the EMA color
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙑𝙄𝙎𝙐𝘼𝙇𝙄𝙕𝘼𝙏𝙄𝙊𝙉
+// --------------------------------------------------------------------------------------------------------------------{
+
+// Plot the Zero-Lag Moving Average
+// p1 = plot(zlma,     color = zlma_color, linewidth = 1) // Plot ZLMA
+// p2 = plot(emaValue, color = ema_col,    linewidth = 1) // Plot EMA
+// fill(p1, p2, zlma, emaValue, color.new(zlma_color, 80), color.new(ema_col, 80)) // Fill between ZLMA and EMA
+
+
+// Определяем текущее направление входов
+if posMode != "auto"
+    strDirection := posMode
+else
+    if signalUp
+        strDirection := "only long"
+    else if signalDn
+        strDirection := "only short"
+// _______________________________
+
+// Method to draw a box on the chart
+method draw_box(color col, top, bot, price)=>
+    box.new(
+             bar_index, top, bar_index, bot, col, 1, 
+             bgcolor         = color.new(col, 90), 
+             text            = "Current mode: " + strDirection, 
+             text_size       = size.normal,
+             text_color      = chart.fg_color,
+             text_halign     = text.align_center
+             )
+
+
+
+if posMode == "auto"
+    // Logic to draw trend levels as boxes on the chart
+    bool check_signals = signalUp or signalDn // Check if there is an up or down signal
+
+    switch
+        // Draw a box when a bullish signal is detected
+        signalUp => box1 := up.draw_box(zlma, zlma - atr, close)
+        // Draw a box when a bearish signal is detected
+        signalDn => box1 := dn.draw_box(zlma + atr, zlma, close)
+    switch
+        // Extend the right side of the box if no new signal is detected
+        not signalUp or not signalDn => box1.set_right(bar_index + 4)  
+        => box1 := box(na) // Otherwise, reset the box
+    // switch
+        // Add a downward label when price crosses below the bottom of the box
+        // ta.crossunder(high, box1.get_bottom()) and not check_signals[1] and not check_signals and emaValue > zlma=>
+            // label.new(bar_index - 1, high[1], "▼", color = color(na), textcolor = dn, style = label.style_label_down)
+        // Add an upward label when price crosses above the top of the box
+        // ta.crossover(low, box1.get_top()) and not check_signals and not check_signals[1] and emaValue < zlma=>
+            // label.new(bar_index - 1, low[1],  "▲", color = color(na), textcolor = up, style = label.style_label_up)
+
+// Plot shapes for up and down signals
+// plotshape(signalUp ? zlma : na, "", shape.diamond, location.absolute, color = up, size = size.tiny)
+// plotshape(signalDn ? zlma : na, "", shape.diamond, location.absolute, color = dn, size = size.tiny)
+// // --------------------------------------------------------------------------------------------------------------------}
+
+
+
+
 //-----------------------------------------------GLOBAL VARIABLES------------------------------------------------------\\
 var float total_profit = 0.0
 var int trade_count = 0
@@ -715,6 +827,22 @@ plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Sl
 longRSI = ta.rsi(close, len) >= overbought or useRSI == false
 shortRSI = ta.rsi(close, len) <= oversold or useRSI == false
 
+// Max profit and drawdown
+equity = strategy.initial_capital + strategy.netprofit + strategy.openprofit // текущий капитал
+
+if useMaxDrawdown and equity <= strategy.initial_capital
+    if math.abs((strategy.initial_capital - equity) / (strategy.initial_capital / 100)) >= maxDrawdown 
+        canSignal := false
+        alert("Max drawdown detected!")
+
+if useMaxProfit and equity >= strategy.initial_capital
+    if math.abs((equity - strategy.initial_capital) / (strategy.initial_capital / 100)) >= maxProfit
+        canSignal := false
+        alert("Max profit reached!")
+
+
+
+
 // Entries
 if can_long and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA
     strategy.close("Enter Short")
@@ -733,24 +861,28 @@ if can_long and na(trade) and canSignal and strDirection != "only short" and lon
         else if trailTP == 3
             trailPrice := entryPrice* (1 + tp3_percent)
 
-    // Проверка на 0 ордера
-    if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
-        strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
-    else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
-        strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")    
-    
-    if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
-        strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
-    else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
-        strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
-    
-    if tp3_percent_fix != 0 and tp4_percent_fix != 0
-        strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
-    else if tp3_percent_fix != 0 and tp4_percent_fix == 0
-        strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
-    
-    if tp4_percent_fix != 0
-        strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
+    // once TP
+    if onceTP 
+        strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+    else 
+        // Проверка на 0 ордера
+        if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+        else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")    
+        
+        if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
+            strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
+        else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
+            strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
+        
+        if tp3_percent_fix != 0 and tp4_percent_fix != 0
+            strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
+        else if tp3_percent_fix != 0 and tp4_percent_fix == 0
+            strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
+        
+        if tp4_percent_fix != 0
+            strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
 if can_short and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA
     strategy.close("Enter Long")
@@ -769,24 +901,26 @@ if can_short and na(trade) and canSignal and strDirection != "only long" and sho
         else if trailTP == 3
             trailPrice := entryPrice* (1 - tp3_percent)
 
-
-    if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
-        strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
-    else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
+    if onceTP
         strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
-    
-    if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
-        strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
-    else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
-        strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
-    
-    if tp3_percent_fix != 0 and tp4_percent_fix != 0
-        strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
-    else if tp3_percent_fix != 0 and tp4_percent_fix == 0
-        strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
-    
-    if tp4_percent_fix != 0
-        strategy.exit("Short TP-4/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-4", comment_loss = "Short: stoploss" )
+    else
+        if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
+            strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+        else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
+            strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+        
+        if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
+            strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
+        else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
+            strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
+        
+        if tp3_percent_fix != 0 and tp4_percent_fix != 0
+            strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
+        else if tp3_percent_fix != 0 and tp4_percent_fix == 0
+            strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
+        
+        if tp4_percent_fix != 0
+            strategy.exit("Short TP-4/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-4", comment_loss = "Short: stoploss" )
 
 // Закомментировать
 // plot(canSignal ? 1.0 : 0)
@@ -794,7 +928,6 @@ if can_short and na(trade) and canSignal and strDirection != "only long" and sho
 // plot(na(trade) ? 1.0 : 0)
 // plot(entryPrice)
 // plot(math.ceil(trailOffset))
-
 
 // Position mode
 if strDirection == "only long"
@@ -934,3 +1067,33 @@ if show_strategy_panel
     table.cell(strategy_table, 4, 5, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 6, "Stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
     table.cell(strategy_table, 4, 6, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
