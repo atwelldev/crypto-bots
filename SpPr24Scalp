@@ -339,12 +339,12 @@ strategy_input = "MANUAL"
 
 
 // POSITION
-posMode = input.string(title = "Entry directions", options = ["long/short","only long","only short", "auto"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\nru: Доступные направления позиции")
-int  autoLength     = input.int(240, title="Trend length for auto mode (bars)", group = POSITION) // Length for the moving average calculations
+posMode = input.string(title = "Entry mode (directions)", options = ["long/short","only long","only short", "auto"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\nru: Доступные направления позиции")
+int  autoLength     = input.int(defval = 240, title="Trend length for auto mode (bars)", minval = 15, group = POSITION, tooltip = "en: If auto mode is chosen, strategy calculates middle term trend (by defined size of trend) and decide, what's kind of entries (long or short) should be used \nru: Если выбран автоматическией режим, то стратегия вычисляет среднесрочный тренд (на основе указанного размера) и решает, в какую позицию (лонг или шорт) входить") // Length for the moving average calculations
 
 
 sensitivity_input = input.float(title = 'Sensitive of strategy', step = 0.1, defval = 12, group = POSITION)
-start_date_input = input.time(defval = timestamp("1 June 2023"), title = "Calculating date", group = POSITION)
+start_date_input = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = POSITION, tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
 
 show_tp_enty_sl = input.bool(defval = true, title = "Show position lines", group = POSITION, inline = "2.1")
 fill_positions = input.bool(defval = true, title = "Fill position", group = POSITION, inline = "2.1")
@@ -356,7 +356,7 @@ break_even_target_input = "1"
 initial_deposit_input = 1000
 
 // TAKE PROFITS
-onceTP = input.bool(title="Use only 1 takeprofit (Takeprofit-1)", defval=false, group = TAKE_PROFITS)
+onceTP = input.bool(title="Use only 1 takeprofit (Takeprofit-1)", defval=false, group = TAKE_PROFITS,  tooltip = "en: 1 TP will close the position completely, 'Size (%)' will not affect\nru: Первый тейкпрофит закроет позицию полностью, 'Size (%)' не возымеет эффекта")
 tp1_percent_input = input.float(title="Takeprofit-1", step = 0.05, defval=1, minval = 0, group = TAKE_PROFITS, inline = "2.2")
 tp1_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=40, group = TAKE_PROFITS, inline = "2.2")
 tp2_percent_input = input.float(title="Takeprofit-2", step = 0.05, defval=2, minval = 0, group = TAKE_PROFITS, inline = "2.3")
@@ -371,34 +371,32 @@ tp4_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=10, gro
 fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\nru: Фиксированный или автоматический")
 sl_percent_input = input.float(title="Stoploss (%)", step = 0.1, defval=1, group = STOP_LOSS)
 trailPercent_input = input.float(title="Trailing (%)", step = 0.05, defval = 0.1, group = STOP_LOSS)
-trailTP = input.int(title="TP-num for trailing ", options = [1, 2, 3], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing *0 - from start\nru: Номер тейка, запускающий трэйлинг *0 - со старта")
-trailWithPercent = input.bool(title = "Trail after % of price", defval = false, group = STOP_LOSS, tooltip = "Trail will only start with % of price. TP-num will not affect")
+trailTP = input.int(title="TP-num for trailing", options = [1, 2, 3], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing\nru: Номер тейка, запускающий трэйлинг")
+trailWithPercent = input.bool(title = "Trail after % of price", defval = false, group = STOP_LOSS, tooltip = "en: Trail will only start with % of price. 'TP-num for trailing' will not affect\nru: Трейл запускается от % от изначальной цены, 'TP-num for trailing' не возымеет эффекта")
 trailStartPercent = input.float(title="% for trail start", step = 0.05, defval=0.5, minval = 0.00001, group = STOP_LOSS)
 trailStartPercent /= 100
 
-// tooltip = "" - подсказка
-
 // EMA
 useEMA = input.bool(defval = false, title = "Use EMA", group = "EMA")
-averageData = input.source(defval = close, title="Average price source", tooltip = "Close - current market price", group = "EMA")
-fastLength = input.int(defval = 10, title="Fast average length", step=1, group = "EMA", minval = 0)
-slowLength = input.int(defval = 50, title="Slow average length", step=1, group = "EMA", minval = 0)
+averageData = input.source(defval = close, title="Average price source", tooltip = "en: Close - current market price. Using another price source is not recommended\nru: Close - текущая рыночная цена. Использование других источников цены не рекомендуется", group = "EMA")
+fastLength = input.int(defval = 12, title="Fast average length", step=1, group = "EMA", minval = 0)
+slowLength = input.int(defval = 60, title="Slow average length", step=1, group = "EMA", minval = 0)
 
 // RSI
 // show_rsi = input.bool(defval = false, title = "Show", group = rsi_group, inline = "3.1")
 show_rsi = false
 
-useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group, inline = "3.1")
-overbought = input(title="Overbought (for long)", defval=78, group = rsi_group, inline = "3.3")
-oversold = input(title="Oversold (for short)", defval=22, group = rsi_group, inline = "3.3")
+useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group, inline = "3.1", tooltip = "en: If RSI > 'Overbought' - can be long, if RSI < 'Oversold' - can be short\nru: Если RSI > 'Overbought' - возможен лонг, если RSI < 'Oversold' - возможен шорт")
+overbought = input(title="Overbought (for long)", defval=60, group = rsi_group, inline = "3.3")
+oversold = input(title="Oversold (for short)", defval=40, group = rsi_group, inline = "3.3")
 len = input(title="Length (bars)", defval=14, group = rsi_group, inline = "3.2")
 
 
 // MAX DRAWDOWN & PROFIT
-useMaxDrawdown = input.bool(defval = false, title = "Use max drawdown", group = "MAX DRAWDOWN & PROFIT")
+useMaxDrawdown = input.bool(defval = false, title = "Use max drawdown", group = "MAX DRAWDOWN & PROFIT", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
 maxDrawdown = input.float(defval = 0, title = "Max drawdown (%)", group = "MAX DRAWDOWN & PROFIT", step = 0.05, minval = 0)
 
-useMaxProfit = input.bool(defval = false, title = "Use max profit", group = "MAX DRAWDOWN & PROFIT")
+useMaxProfit = input.bool(defval = false, title = "Use max profit", group = "MAX DRAWDOWN & PROFIT", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
 maxProfit = input.float(defval = 0, title = "Max profit (%)", group = "MAX DRAWDOWN & PROFIT", step = 0.05, minval = 0)
 
 
@@ -427,8 +425,8 @@ varip strDirection = ""
 
     
 // Colors for the trend levels
-color up = color.green
-color dn = color.red
+color up = color.new(color.rgb(76, 175, 80), 90)
+color dn = color.new(color.rgb(255, 82, 82), 90)
 
 var box1         = box(na) // Variable to store the box
 series float atr = ta.atr(200) // Average True Range (ATR) for trend levels
@@ -472,7 +470,7 @@ else
 method draw_box(color col, top, bot, price)=>
     box.new(
              bar_index, top, bar_index, bot, col, 1, 
-             bgcolor         = color.new(col, 90), 
+             bgcolor         = col, 
              text            = "Current mode: " + strDirection, 
              text_size       = size.normal,
              text_color      = chart.fg_color,
@@ -970,12 +968,13 @@ if ( (can_long and longRSI and longEMA) or (can_short and shortRSI and shortEMA)
         sl_label := label.new(bar_index, trade.sl_price, str.tostring(trade.sl_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.red)
         tp1_line    := line.new(x1=trade.start_bar_index, y1=trade.tp1_price, x2=bar_index, y2=trade.tp1_price, color=tp_color, style = line_style, width = 2)
         tp1_label := label.new(bar_index, trade.tp1_price, str.tostring(trade.tp1_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
-        tp2_line    := line.new(x1=trade.start_bar_index, y1=trade.tp2_price, x2=bar_index, y2=trade.tp2_price, color=tp_color, style = line_style, width = 2)
-        tp2_label := label.new(bar_index, trade.tp2_price, str.tostring(trade.tp2_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
-        tp3_line    := line.new(x1=trade.start_bar_index, y1=trade.tp3_price, x2=bar_index, y2=trade.tp3_price, color=tp_color, style = line_style, width = 2)
-        tp3_label := label.new(bar_index, trade.tp3_price, str.tostring(trade.tp3_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
-        tp4_line    := line.new(x1=trade.start_bar_index, y1=trade.tp4_price, x2=bar_index, y2=trade.tp4_price, color=tp_color, style = line_style, width = 2)
-        tp4_label := label.new(bar_index, trade.tp4_price, str.tostring(trade.tp4_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+        if not onceTP 
+            tp2_line    := line.new(x1=trade.start_bar_index, y1=trade.tp2_price, x2=bar_index, y2=trade.tp2_price, color=tp_color, style = line_style, width = 2)
+            tp2_label := label.new(bar_index, trade.tp2_price, str.tostring(trade.tp2_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+            tp3_line    := line.new(x1=trade.start_bar_index, y1=trade.tp3_price, x2=bar_index, y2=trade.tp3_price, color=tp_color, style = line_style, width = 2)
+            tp3_label := label.new(bar_index, trade.tp3_price, str.tostring(trade.tp3_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+            tp4_line    := line.new(x1=trade.start_bar_index, y1=trade.tp4_price, x2=bar_index, y2=trade.tp4_price, color=tp_color, style = line_style, width = 2)
+            tp4_label := label.new(bar_index, trade.tp4_price, str.tostring(trade.tp4_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
         // lable_at_signal := label.new(bar_index, is_long_trend ? trade.tp4_price * 1.004 : trade.tp4_price * 0.996, "", style = label.style_label_center, textcolor = color.white)
     // For long   
     // if ta.crossunder(trade.break_even_price, lastPrice)
@@ -1067,33 +1066,3 @@ if show_strategy_panel
     table.cell(strategy_table, 4, 5, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 6, "Stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal)
     table.cell(strategy_table, 4, 6, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
