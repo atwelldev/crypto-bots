@@ -812,10 +812,28 @@ varip float trailPrice = 0
 varip bool corShiftCheck = false
 varip bool corShiftWait = false
 
-if strategy.opentrades > 0
+if strategy.opentrades > 0 or (useCorShift and corShiftWait)
     canSignal := false
 else 
     strategy.cancel_all()
+    canSignal := true
+
+
+// Corrective shift
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= entryPrice * (1- corShiftSize) 
+    corShiftCheck := true
+    corShiftWait := false
+else if useCorShift and corShiftWait and tradeSide == "LONG" and close >= entryPrice * (1+ tp1_percent) 
+    corShiftCheck := false
+    corShiftWait := false
+    canSignal := true
+
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= entryPrice * (1+ corShiftSize) 
+    corShiftCheck := true
+    corShiftWait := false
+else if useCorShift and corShiftWait and tradeSide == "SHORT" and close <= entryPrice * (1- tp1_percent) 
+    corShiftCheck := false
+    corShiftWait := false
     canSignal := true
 
 // EMA calculationg
@@ -852,13 +870,7 @@ if useMaxDrawdown and strategy.max_drawdown_percent >= maxDrawdown
 // plot(maxDrawdown)
 // plot(strategy.max_drawdown_percent)
 
-// Corrective shift
-if useCorShift and corShiftWait and tradeSide == "LONG" and close <= entryPrice * (1- corShiftSize) 
-    corShiftCheck := true
-    corShiftWait := false
-else if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= entryPrice * (1+ corShiftSize) 
-    corShiftCheck := true
-    corShiftWait := false
+
 
 // Entries
 if (can_long and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA) or (tradeSide == "LONG" and corShiftCheck)
