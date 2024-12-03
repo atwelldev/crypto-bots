@@ -1124,7 +1124,7 @@ if show_strategy_panel
     table.cell(strategy_table, 2, 13, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 14, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 14, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 15, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 1, 15, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 15, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 
     table.cell(strategy_table, 3, 1, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
