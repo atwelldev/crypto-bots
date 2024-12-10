@@ -1151,7 +1151,7 @@ if show_profit_panel
 
 var table strategy_table = na
 if show_strategy_panel
-    strategy_table := table.new(position.bottom_right, 5, 17, border_color = color.gray)
+    strategy_table := table.new(position.top_right, 5, 17, border_color = color.gray)
     // table.cell(strategy_table, 1, 0, "SpaceDragon24Final+: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
     table.cell(strategy_table, 1, 0, "SpaceDragon24Final+," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
     table.cell(strategy_table, 2, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
