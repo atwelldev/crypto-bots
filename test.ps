@@ -392,11 +392,11 @@ slowLength = input.int(defval = 60, title="Slow average length", step=1, group =
 // show_rsi = input.bool(defval = false, title = "Show", group = rsi_group, inline = "3.1")
 show_rsi = false
 
-useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group, inline = "3.1")
-modeRSI = input.string(title = "Mode for RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = rsi_group, tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. Sensitivity = 2 is recommended\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. Sensitivity = 2 рекомендуется\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
-overbought = input.int(title="Overbought", defval=70, minval = 50, maxval = 100, step = 1, group = rsi_group, inline = "3.3")
-oversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 50, step = 1,group = rsi_group, inline = "3.3")
-len = input(title="Length (bars)", defval=14, group = rsi_group, inline = "3.2")
+useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group)
+modeRSI = input.string(title = "Mode for RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = rsi_group, tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. ! Sensitivity = 0.1-2 is recommended. Using of this RSI-mode with EMA may give you very small number of signals !\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. ! Sensitivity = 0.1-2 рекомендуется. Использование данного RSI-режима вместе с EMA может дать очень маленькое кол-во сигналов !\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
+overbought = input.int(title="Overbought", defval=70, minval = 50, maxval = 100, step = 1, group = rsi_group)
+oversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 50, step = 1,group = rsi_group)
+len = input(title="Length (bars)", defval=14, group = rsi_group)
 
 
 // MAX DEPOLOSS,DRAWDOWN & PROFIT
