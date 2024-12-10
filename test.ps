@@ -343,7 +343,7 @@ posMode = input.string(title = "Entry mode (directions)", options = ["long/short
 int  autoLength     = input.int(defval = 240, title="Trend length for auto mode (bars)", minval = 15, step = 5, group = POSITION, tooltip = "en: If auto mode is chosen, strategy calculates middle term trend (by defined size of trend) and decide, what's kind of entries (long or short) should be used \n\nru: Если выбран автоматическией режим, то стратегия вычисляет среднесрочный тренд (на основе указанного кол-ва баров) и решает, в какую позицию (лонг или шорт) входить") // Length for the moving average calculations
 
 
-sensitivity_input = input.float(title = 'Sensitive of strategy', step = 0.1, defval = 12, group = POSITION)
+sensitivity_input = input.float(title = 'Sensitive of strategy', step = 0.1, defval = 12, group = POSITION, tooltip = "en: Lower value - more signals\n\nru: Меньше значение - больше сигналов")
 start_date_input = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = POSITION, tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
 
 show_tp_enty_sl = input.bool(defval = true, title = "Show position lines", group = POSITION, inline = "2.1")
