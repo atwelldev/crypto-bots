@@ -283,7 +283,7 @@ line_style = line.style_dotted
 
 
 //@version=5
-strategy(title='SpaceDragon24Final+', shorttitle='SpaceDragon24Final+', calc_on_every_tick = false, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title='SpaceDragon24Final+', shorttitle='SpaceDragon24Final+', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
 import TradingView/Strategy/3
 
 //---------------------------------------------------SETTINGS----------------------------------------------------------\\
