@@ -1125,7 +1125,7 @@ varip bool canFill = na
 varip float corEntryPrice = na
 
 // Creating lines
-if corShiftWait and canDrawCor != true
+if corShiftWait and canDrawCor != true and show_tp_enty_sl
     startBarIndexCor := bar_index
     corEntryPrice := entryPrice
     priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? fib_382 : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? fib_618 : corEntryPrice * (1+ corShiftSize))
