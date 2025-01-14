@@ -383,8 +383,8 @@ corShiftMode = input.string(title = "Move or not TP/SL", defval = "Move TP/SL", 
 useCorShiftAuto = input.bool(defval = false, title = "Auto corrective shift size", group = "CORRECTIVE SHIFT", tooltip = "en: Correction size will be calculated automatically.\n\nru: Величина коррекции будет рассчитана автоматически.")  
 corShiftSize = input.float(defval = 0.01, title = "Corrective  shift size (%)", group = "CORRECTIVE SHIFT", step = 0.05, minval = 0)
 corShiftSize /= 100
-// useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group = "CORRECTIVE SHIFT", tooltip = "en: Don't open the position after a certain amount of bars\n\nru: Не открывать позицию после определенного кол-ва баров")  
-// corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
+useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group = "CORRECTIVE SHIFT", tooltip = "en: Don't open the position after a certain amount of bars\n\nru: Не открывать позицию после определенного кол-ва баров")  
+corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
 
 // EMA
 useEMA = input.bool(defval = false, title = "Use EMA", group = "EMA")
@@ -843,6 +843,8 @@ else
 varip bool canDrawCor = false
 varip int corStartBar = 0
 
+var bool corBarPassed = false
+corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
 
 if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
@@ -856,10 +858,10 @@ if useCorShift and corShiftWait and tradeSide == "LONG" and close >= entryPrice 
     corShiftLong := false
     corShiftWait := false
     canDrawCor := false
-// if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and (bar_index - corStartBar >= corShiftBars) 
-//     corShiftLong := false
-//     corShiftWait := false
-//     canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and corBarPassed 
+    corShiftLong := false
+    corShiftWait := false
+    canDrawCor := false
 
 
 if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? fib_618 : entryPrice * (1+ corShiftSize)) and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
@@ -874,10 +876,10 @@ if useCorShift and corShiftWait and tradeSide == "SHORT" and close <= entryPrice
     corShiftShort := false
     corShiftWait := false
     canDrawCor := false
-// if useCorShift and corShiftWait and tradeSide == "SHORT" and useCorShiftBars and (bar_index - corStartBar >= corShiftBars) 
-//     corShiftLong := false
-//     corShiftWait := false
-//     canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "SHORT" and useCorShiftBars and corBarPassed
+    corShiftLong := false
+    corShiftWait := false
+    canDrawCor := false
 
 // plot(canSignal ? 1 : 0)
 // plot(corShiftLong ? 1 : 0)
