@@ -343,7 +343,8 @@ posMode = input.string(title = "Entry mode (directions)", options = ["long/short
 int  autoLength     = input.int(defval = 240, title="Trend length for auto mode (bars)", minval = 15, step = 5, group = POSITION, tooltip = "en: If auto mode is chosen, strategy calculates middle term trend (by defined size of trend) and decide, what's kind of entries (long or short) should be used \n\nru: Если выбран автоматическией режим, то стратегия вычисляет среднесрочный тренд (на основе указанного кол-ва баров) и решает, в какую позицию (лонг или шорт) входить") // Length for the moving average calculations
 
 
-sensitivity_input = input.float(title = 'Sensitive of strategy', step = 0.1, defval = 12, group = POSITION, tooltip = "en: Lower value - more signals\n\nru: Меньше значение - больше сигналов")
+sensitivity_input = input.float(title = 'Sensitivity of strategy', step = 0.1, defval = 12, group = POSITION, tooltip = "en: Lower value - more signals\n\nru: Меньше значение - больше сигналов")
+fiboLen = input.int(title = 'Length for Fibo (bars)', step = 1, defval = 120, minval = 1, group = POSITION, tooltip = "en: Fibo channel length for 'auto SL with Fibo' and 'Auto cor shift size with Fibo'. Sensitivity * 10 is recommended\n\nru: Длина канала фибоначи для 'auto SL with Fibo' и 'Auto cor shift size with Fibo'. Рекомендуется значение sensitivity * 10")
 start_date_input = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = POSITION, tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
 
 show_tp_enty_sl = input.bool(defval = true, title = "Show position lines", group = POSITION, inline = "2.1")
@@ -620,11 +621,15 @@ imba_trend_line = fib_5
 
 
 // for SL and Cor. shift
-fibSLLong = high_line - (channel_range * slFiboLong)
-fibSLShort = low_line + (channel_range * slFiboShort)
+// fiboLen
+highLine = ta.highest(high, int(fiboLen))
+lowLine = ta.lowest(low, int(fiboLen))
+channelRange = highLine - lowLine
+fibSLLong = highLine - (channelRange * slFiboLong)
+fibSLShort = lowLine + (channelRange * slFiboShort)
 
-fibCorLong = high_line - (channel_range * corFiboLong)
-fibCorShort = low_line + (channel_range * corFiboShort)
+fibCorLong = highLine - (channelRange * corFiboLong)
+fibCorShort = lowLine + (channelRange * corFiboShort)
 
 // CAN LONG/SHORT
 if time >= start_date_input
@@ -857,8 +862,8 @@ else
 // fib_382 = high_line - channel_range * 0.382
 // fib_5 = high_line - channel_range * 0.5
 // fib_618 = high_line - channel_range * 0.618
-plot(channel_range)
-plot(high_line)
+// plot(channel_range)
+// plot(high_line)
 varip bool canDrawCor = false
 varip int corStartBar = 0
 
