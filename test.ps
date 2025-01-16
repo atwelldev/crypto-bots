@@ -369,7 +369,8 @@ tp4_percent_input = 0
 tp4_percent_fix_input = 0
 
 // STOPLOSS & TRAIL
-fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\n\nru: Фиксированный или автоматический")
+// fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\n\nru: Фиксированный или автоматический")
+fixed_stop_input = true
 sl_percent_input = input.float(title="Stoploss (%)", step = 0.1, defval=0.3, group = STOP_LOSS)
 trailPercent_input = input.float(title="Trailing (%)", step = 0.05, defval = 0.1, group = STOP_LOSS)
 trailTP = input.int(title="TP-num for trailing", options = [1, 2], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing\n\nru: Номер тейка, запускающий трейлинг")
@@ -380,9 +381,10 @@ trailStartPercent /= 100
 // Correction shift
 useCorShift = input.bool(defval = false, title = "Use corrective shift", group = "CORRECTIVE SHIFT", tooltip = "en: To open positions after correction. The strategy waits for the price to cross the entry price (by signal) by the specified percentage then opens position. Waiting for correction ends if a new signal is received or the price has crossed the 1 TP level.\n\nru: Открывать позицию после коррекции. Стратегия ждет, когда цена пересечет изначальную цену входа (от сигнала) на указанный %, затем открывает позицию. Ожидание коррекции прекращается, если был получен новый сигнал или цена пересекла уровень 1-TP")
 corShiftMode = input.string(title = "Move or not TP/SL", defval = "Move TP/SL", options = ["Move TP/SL", "Don't move TP/SL"], group = "CORRECTIVE SHIFT", tooltip = "en: Move or not TP/SL levels after entry. If 'Don't move TP/SL' is chosen, doesn't open positions in case that current price is crossing SL while waiting for correction\n\nru: Перемещать или нет уровни TP/SL. Если режим 'Don't move TP/SL' выбран, не открывает позицию, если цена пересекает уровень SL при ожидании коррекции")
-useCorShiftAuto = input.bool(defval = false, title = "Auto corrective shift size", group = "CORRECTIVE SHIFT", tooltip = "en: Correction size will be calculated automatically.\n\nru: Величина коррекции будет рассчитана автоматически.")  
 corShiftSize = input.float(defval = 0.01, title = "Corrective  shift size (%)", group = "CORRECTIVE SHIFT", step = 0.05, minval = 0)
 corShiftSize /= 100
+useCorShiftAuto = input.bool(defval = false, title = "Auto corrective shift size", group = "CORRECTIVE SHIFT", tooltip = "en: Correction size will be calculated automatically by Fibonacci zones.\n\nru: Величина коррекции будет рассчитана автоматически по зонам Фибоначчи")  
+corShiftAutoFibo = input.string(defval = "Short: 0.618, long: 0.382", options = ["Short: 0.618, long: 0.382", "Short: 0.705, long: 0.295", "Short: 0.786, long: 0.214"],  title = "Fibo zones for auto cor. size", group = "CORRECTIVE SHIFT", tooltip ="en: Length of Fibonacci channel is equal 'sensitivity' * 10\n\nru: Длина канала Фибоначчи равна 'sensitivity' * 10")
 useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group = "CORRECTIVE SHIFT", tooltip = "en: Don't open the position after a certain amount of bars\n\nru: Не открывать позицию после определенного кол-ва баров")  
 corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
 
@@ -598,15 +600,30 @@ tp4_percent_fix /= 100
 sl_percent /= 100
 
 
+// "Short: 0.618, long: 0.382", "Short: 0.705, long: 0.295", "Short: 0.786, long: 0.214"
+
 high_line = ta.highest(high, int(sensitivity))
 low_line = ta.lowest(low, int(sensitivity))
 channel_range = high_line - low_line
-fib_236 = high_line - channel_range * (0.1)
-fib_382 = high_line - channel_range * 0.236
+fib_236 = high_line - channel_range * (0.236)
+fib_382 = high_line - channel_range * 0.382
 fib_5 = high_line - channel_range * 0.5
-fib_618 = high_line - channel_range * 0.786
-fib_786 = high_line - channel_range * (0.9)
+fib_618 = high_line - channel_range * 0.618
+fib_786 = high_line - channel_range * (0.786)
 imba_trend_line = fib_5
+
+var float corFibLong = na
+var float corFibShort = na
+
+if corShiftAutoFibo == "Short: 0.618, long: 0.382"
+    corFibLong := low_line + channel_range * 0.382
+    corFibShort := low_line + channel_range * 0.618
+else if corShiftAutoFibo == "Short: 0.705, long: 0.295"
+    corFibLong := low_line + channel_range * 0.295
+    corFibShort := low_line + channel_range * 0.705
+else if corShiftAutoFibo == "Short: 0.786, long: 0.214"
+    corFibLong := low_line + channel_range * 0.214
+    corFibShort := low_line + channel_range * 0.786
 
 // CAN LONG/SHORT
 if time >= start_date_input
@@ -846,7 +863,9 @@ varip int corStartBar = 0
 var bool corBarPassed = false
 corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
 
-if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
+var float priceCor = na
+
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= priceCor and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
     corShiftWait := false
     canDrawCor := false
@@ -864,7 +883,7 @@ if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and 
     canDrawCor := false
 
 
-if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? fib_618 : entryPrice * (1+ corShiftSize)) and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= priceCor and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
     corShiftShort := true
     corShiftWait := false
     canDrawCor := false
@@ -1117,7 +1136,6 @@ var float priceTP2 = na
 var float priceTP3 = na
 var float priceTP4 = na
 var float priceSL = na
-var float priceCor = na
 varip bool hitTP1 = na
 varip bool hitTP2 = na
 varip bool hitTP3 = na
@@ -1130,7 +1148,7 @@ varip float corEntryPrice = na
 if corShiftWait and canDrawCor != true and show_tp_enty_sl
     startBarIndexCor := bar_index
     corEntryPrice := entryPrice
-    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? fib_382 : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? fib_618 : corEntryPrice * (1+ corShiftSize))
+    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? corFibLong : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? corFibShort : corEntryPrice * (1+ corShiftSize))
     lineCor := useCorShift ? line.new(x1=startBarIndex, y1=priceCor, x2=bar_index, y2=priceCor, color=color.yellow, style = line.style_dotted, width = 2) : na
     canDrawCor := true
 
@@ -1351,27 +1369,29 @@ if show_strategy_panel
     table.cell(strategy_table, 2, 8, str.tostring(tp3_percent * 100) + "%" + " (" + str.tostring(tp3_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 1, 9, "TP-4:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 2, 9, str.tostring(tp4_percent * 100) + "%" + " (" + str.tostring(tp4_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 9, "Fixed stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 9, str.tostring(fixed_stop), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 10, "Stoploss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 10, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 11, "Trailing %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 11, str.tostring(trailPercent) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 12, "TP-num for trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 12, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 13, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 13, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 14, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 14, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 15, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 15, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 16, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 16, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 1, 9, "Fixed stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 2, 9, str.tostring(fixed_stop), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 9, "Stoploss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 9, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 10, "Trailing %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 10, str.tostring(trailPercent) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 11, "TP-num for trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 11, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 12, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 12, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 13, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 13, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 14, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 14, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 15, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 15, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 16, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 16, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)   
     table.cell(strategy_table, 1, 17, "Auto cor. shift size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 17, str.tostring(useCorShiftAuto), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
   
-    table.cell(strategy_table, 3, 1, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 1, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 1, "Fibo zones for auto cor. size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 1, str.tostring(corShiftAutoFibo), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 1, "Use limit of bars:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 4, 1, str.tostring(useCorShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 2, "Amount of bars:", bgcolor  = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
