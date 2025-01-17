@@ -384,7 +384,7 @@ corShiftMode = input.string(title = "Move or not TP/SL", defval = "Move TP/SL", 
 corShiftSize = input.float(defval = 0.01, title = "Corrective  shift size (%)", group = "CORRECTIVE SHIFT", step = 0.05, minval = 0)
 corShiftSize /= 100
 useCorShiftAuto = input.bool(defval = false, title = "Auto corrective shift size", group = "CORRECTIVE SHIFT", tooltip = "en: Correction size will be calculated automatically by Fibonacci zones.\n\nru: Величина коррекции будет рассчитана автоматически по зонам Фибоначчи")  
-corShiftAutoFibo = input.string(defval = "Short: 0.618, long: 0.382", options = ["Short: 0.618, long: 0.382", "Short: 0.705, long: 0.295", "Short: 0.786, long: 0.214"],  title = "Fibo zones for auto cor. size", group = "CORRECTIVE SHIFT", tooltip ="en: Length of Fibonacci channel is equal 'sensitivity' * 10\n\nru: Длина канала Фибоначчи равна 'sensitivity' * 10")
+corShiftAutoFibo = input.string(defval = "AlgoFibo: 0.236-0.786", options = ["AlgoFibo: 0.236-0.786", "AlgoFibo: 0.296-0.704", "AlgoFibo: 0.386-0.618"],  title = "Fibo zones for auto cor. size", group = "CORRECTIVE SHIFT", tooltip ="en: Length of Fibonacci channel is equal 'sensitivity' * 10\n\nru: Длина канала Фибоначчи равна 'sensitivity' * 10")
 useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group = "CORRECTIVE SHIFT", tooltip = "en: Don't open the position after a certain amount of bars\n\nru: Не открывать позицию после определенного кол-ва баров")  
 corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
 
@@ -615,15 +615,15 @@ imba_trend_line = fib_5
 var float corFibLong = na
 var float corFibShort = na
 
-if corShiftAutoFibo == "Short: 0.618, long: 0.382"
-    corFibLong := low_line + channel_range * 0.382
-    corFibShort := low_line + channel_range * 0.618
-else if corShiftAutoFibo == "Short: 0.705, long: 0.295"
-    corFibLong := low_line + channel_range * 0.295
-    corFibShort := low_line + channel_range * 0.705
-else if corShiftAutoFibo == "Short: 0.786, long: 0.214"
-    corFibLong := low_line + channel_range * 0.214
-    corFibShort := low_line + channel_range * 0.786
+if corShiftAutoFibo == "AlgoFibo: 0.236-0.786"
+    corFibLong := high_line - channel_range * 0.236 
+    corFibShort := high_line - channel_range * 0.786 
+else if corShiftAutoFibo == "AlgoFibo: 0.296-0.704"
+    corFibLong := high_line - channel_range * 0.296
+    corFibShort := high_line - channel_range * 0.704
+else if corShiftAutoFibo == "AlgoFibo: 0.386-0.618"
+    corFibLong := high_line - channel_range * 0.386
+    corFibShort := high_line - channel_range * 0.618
 
 // CAN LONG/SHORT
 if time >= start_date_input
@@ -865,7 +865,7 @@ corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
 
 var float priceCor = na
 
-if useCorShift and corShiftWait and tradeSide == "LONG" and close <= priceCor and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? corFibLong : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
     corShiftWait := false
     canDrawCor := false
@@ -883,7 +883,7 @@ if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and 
     canDrawCor := false
 
 
-if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= priceCor and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? corFibShort : entryPrice * (1+ corShiftSize))  and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
     corShiftShort := true
     corShiftWait := false
     canDrawCor := false
