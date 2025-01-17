@@ -600,30 +600,27 @@ tp4_percent_fix /= 100
 sl_percent /= 100
 
 
-// "Short: 0.618, long: 0.382", "Short: 0.705, long: 0.295", "Short: 0.786, long: 0.214"
-
 high_line = ta.highest(high, int(sensitivity))
 low_line = ta.lowest(low, int(sensitivity))
 channel_range = high_line - low_line
-fib_236 = high_line - channel_range * (0.236)
-fib_382 = high_line - channel_range * 0.382
+fib_236 = high_line - channel_range * (0.1)
+fib_382 = high_line - channel_range * 0.236
 fib_5 = high_line - channel_range * 0.5
-fib_618 = high_line - channel_range * 0.618
-fib_786 = high_line - channel_range * (0.786)
+fib_618 = high_line - channel_range * 0.786
+fib_786 = high_line - channel_range * (0.9)
 imba_trend_line = fib_5
 
-var float corFibLong = na
-var float corFibShort = na
 
 if corShiftAutoFibo == "AlgoFibo: 0.236-0.786"
-    corFibLong := high_line - channel_range * 0.236 
-    corFibShort := high_line - channel_range * 0.786 
+    fib_382 := high_line - channel_range * 0.236 
+    fib_618 := high_line - channel_range * 0.786 
 else if corShiftAutoFibo == "AlgoFibo: 0.296-0.704"
-    corFibLong := high_line - channel_range * 0.296
-    corFibShort := high_line - channel_range * 0.704
+    fib_382 := high_line - channel_range * 0.296
+    fib_618 := high_line - channel_range * 0.704
 else if corShiftAutoFibo == "AlgoFibo: 0.386-0.618"
-    corFibLong := high_line - channel_range * 0.386
-    corFibShort := high_line - channel_range * 0.618
+    fib_382 := high_line - channel_range * 0.386
+    fib_618 := high_line - channel_range * 0.618
+
 
 // CAN LONG/SHORT
 if time >= start_date_input
@@ -863,9 +860,7 @@ varip int corStartBar = 0
 var bool corBarPassed = false
 corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
 
-var float priceCor = na
-
-if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? corFibLong : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
     corShiftWait := false
     canDrawCor := false
@@ -883,7 +878,7 @@ if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and 
     canDrawCor := false
 
 
-if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? corFibShort : entryPrice * (1+ corShiftSize))  and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? fib_618 : entryPrice * (1+ corShiftSize)) and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
     corShiftShort := true
     corShiftWait := false
     canDrawCor := false
@@ -1136,6 +1131,7 @@ var float priceTP2 = na
 var float priceTP3 = na
 var float priceTP4 = na
 var float priceSL = na
+var float priceCor = na
 varip bool hitTP1 = na
 varip bool hitTP2 = na
 varip bool hitTP3 = na
@@ -1148,7 +1144,7 @@ varip float corEntryPrice = na
 if corShiftWait and canDrawCor != true and show_tp_enty_sl
     startBarIndexCor := bar_index
     corEntryPrice := entryPrice
-    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? corFibLong : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? corFibShort : corEntryPrice * (1+ corShiftSize))
+    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? fib_382 : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? fib_618 : corEntryPrice * (1+ corShiftSize))
     lineCor := useCorShift ? line.new(x1=startBarIndex, y1=priceCor, x2=bar_index, y2=priceCor, color=color.yellow, style = line.style_dotted, width = 2) : na
     canDrawCor := true
 
