@@ -359,11 +359,11 @@ initial_deposit_input = 1000
 // TAKE PROFITS
 onceTP = input.bool(title="Use only 1 takeprofit (Takeprofit-1)", defval=false, group = TAKE_PROFITS,  tooltip = "en: 1 TP will close the position completely, 'Size (%)' will not affect\n\nru: Первый тейкпрофит закроет позицию полностью, 'Size (%)' не возымеет эффекта")
 tp1_percent_input = input.float(title="Takeprofit-1", step = 0.05, defval=0.1, minval = 0, group = TAKE_PROFITS, inline = "2.2")
-tp1_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=50, group = TAKE_PROFITS, inline = "2.2")
+tp1_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=30, group = TAKE_PROFITS, inline = "2.2")
 tp2_percent_input = input.float(title="Takeprofit-2", step = 0.05, defval=0.2, minval = 0, group = TAKE_PROFITS, inline = "2.3")
 tp2_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=30, group = TAKE_PROFITS, inline = "2.3")
 tp3_percent_input = input.float(title="Takeprofit-3", step = 0.05, defval=0.3, minval = 0, group = TAKE_PROFITS, inline = "2.4")
-tp3_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=20, group = TAKE_PROFITS, inline = "2.4")
+tp3_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=40, group = TAKE_PROFITS, inline = "2.4")
 // tp4_percent_input = input.float(title="Takeprofit-4", step = 0.05, defval=0.4, minval = 0, group = TAKE_PROFITS, inline = "2.5")
 tp4_percent_input = 0
 // tp4_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=10, group = TAKE_PROFITS, inline = "2.5")
