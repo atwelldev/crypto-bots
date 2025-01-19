@@ -440,9 +440,9 @@ sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
 
 vc = input.float(2.0, title='Volume coefficient', group='NEW SIGNAL')
 
-vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
+// vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
 
-vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
+// vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
 
 vklca = input(title='Enable close absorption', defval=false, group='NEW SIGNAL')
 
@@ -456,12 +456,12 @@ vklfbar = input(title='Enable Bar color filter', defval=true, group='NEW SIGNAL'
 canLongNew = false
 canShortNew = false
 
-if close>open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]<open[1])  and (vklca==false or close>high[1]) and vkllong
+if close>open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]<open[1])  and (vklca==false or close>high[1])
     canLongNew := true
 
 shortalert=false
 
-if close<open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]>open[1])  and (vklca==false or close<low[1]) and vklshort
+if close<open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]>open[1])  and (vklca==false or close<low[1])
     canShortNew := true
 
 // Zero lag
