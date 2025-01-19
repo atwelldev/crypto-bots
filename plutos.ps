@@ -1,1 +1,132 @@
 
+//@version=5
+strategy("Absorption Bar and Rsi strategy", overlay=true)
+
+rr = input.float(2.0, title='Risk Reward', group='strategy')
+sdelta = input.int(10, title='Stop Tick Delta', group='strategy')
+
+up = input.int(55, title='Long Rsi', group='RSI Filter')
+
+dn = input.int(45, title='Short Rsi', group='RSI Filter')
+
+vc = input.float(2.0, title='Volume coefficient')
+
+vkllong = input(title='Enable Long', defval=true)
+
+vklshort = input(title='Enable Short', defval=true)
+
+vklca = input(title='Enable close absorption', defval=false)
+
+vklfrsi = input(title='Enable RSI filter', defval=true)
+
+vklfvol = input(title='Enable Volume filter', defval=true)
+
+vklfbar = input(title='Enable Bar color filter', defval=true)
+
+
+ema1len = input.int(50, title='EMA 1 length', group='EMA Filter')
+vklfema1 = input(title='Enable EMA 1 filter', defval=true, group='EMA Filter')
+
+
+ema2len = input.int(100, title='EMA 2 length', group='EMA Filter')
+vklfema2 = input(title='Enable EMA 2 filter', defval=true, group='EMA Filter')
+
+
+ema3len = input.int(200, title='EMA 3 length', group='EMA Filter')
+vklfema3 = input(title='Enable EMA 3 filter', defval=true, group='EMA Filter')
+
+
+tp1 = input.float(title="Takeprofit-1", step = 0.05, defval=0.1, minval = 0, group = "NEW SETTINGS FOR TEST")
+tp1 /= 100
+sl = input.float(title="Stoploss (%)", step = 0.1, defval=0.3, group = "NEW SETTINGS FOR TEST")
+sl /= 100
+trailSize = input.float(title="Trailing (%)", step = 0.05, defval = 0.1, group = "NEW SETTINGS FOR TEST")
+trailSize /= 100
+trailStartPrice = input.float(title="% for trail start", step = 0.05, defval=0.5, minval = 0.00001, group = "NEW SETTINGS FOR TEST")
+trailStartPrice /= 100
+
+varip float entryPrice = na
+
+ema1=ta.ema(close,ema1len)
+ema2=ta.ema(close,ema2len)
+ema3=ta.ema(close,ema3len)
+
+var float tpl=close
+var float tps=close
+
+var float sll=close
+var float sls=close
+
+
+rsi1=ta.rsi(close,14)
+
+longalert=false
+
+if close>open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfrsi==false or rsi1>up)  and (vklfbar==false or close[1]<open[1])  and (vklca==false or close>high[1]) and vkllong
+    longalert:=true
+
+shortalert=false
+
+if close<open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfrsi==false or rsi1<dn)  and (vklfbar==false or close[1]>open[1])  and (vklca==false or close<low[1]) and vklshort
+    shortalert:=true
+    
+if vklfema1 and close<ema1
+    longalert:=false    
+if vklfema1 and close>ema1
+    shortalert:=false   
+if vklfema2 and close<ema2
+    longalert:=false    
+if vklfema2 and close>ema2
+    shortalert:=false   
+if vklfema3 and close<ema3
+    longalert:=false    
+if vklfema3 and close>ema3
+    shortalert:=false
+
+plotchar(longalert,char = "▲",location = location.belowbar , size = size.tiny, color=color.lime)
+
+plotchar(shortalert,char = "▼", location = location.abovebar, size = size.tiny, color=color.red)
+
+
+sz=strategy.position_size
+
+varip float trailPrice = na
+varip float trailOffset = na
+
+if longalert    and sz==0
+    // sll:=low-sdelta*syminfo.mintick
+    // tpl:=close+rr*(close-sll)
+    strategy.entry("LE", strategy.long)
+    entryPrice := close
+    sll := entryPrice * (1 - sl)
+    tpl := entryPrice * (1 + tp1)
+    trailPrice := entryPrice * (1 + trailStartPrice)
+    trailOffset := int((entryPrice * trailSize) / syminfo.mintick)
+
+if shortalert and sz==0
+    // sls:=high+sdelta*syminfo.mintick
+    // tps:=close-rr*(sls-close)
+    strategy.entry("SE", strategy.short)
+    entryPrice := close
+    sls := entryPrice * (1 + sl)
+    tps := entryPrice * (1 - tp1)
+    trailPrice := entryPrice * (1 - trailStartPrice)
+    trailOffset := int((entryPrice * trailSize) / syminfo.mintick)
+
+if sz>0
+    strategy.exit("TP/SL/LE", "LE", limit = tpl, stop = sll, trail_price = trailPrice, trail_offset = trailOffset, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+
+if sz<0 
+    strategy.exit("TP/SL/SE", "SE", limit = tps, stop = sls, trail_price = trailPrice, trail_offset = trailOffset, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
+    
+plot(sz>0?sll:na,color=color.red,style=plot.style_linebr)
+plot(sz<0?sls:na,color=color.red,style=plot.style_linebr)    
+plot(sz>0?tpl:na,color=color.green,style=plot.style_linebr)
+plot(sz<0?tps:na,color=color.green,style=plot.style_linebr)
+
+plot(vklfema1?ema1:na,color=color.yellow)
+plot(vklfema2?ema2:na,color=color.orange)
+plot(vklfema3?ema3:na,color=color.gray)
+    
+
+plot(volume)
