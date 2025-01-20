@@ -680,7 +680,7 @@ else
 is_trend_change := is_short_trend_started or is_long_trend_started
 // plotshape(is_long_trend and is_long_trend_started ? imba_trend_line : na, title="Long", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
 // plotshape(is_short_trend and is_short_trend_started ? imba_trend_line : na, title="Short", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
-plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 2, title = "Trend line")
+// plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 2, title = "Trend line")
 
 // LOGIC
 if not na(trade)
