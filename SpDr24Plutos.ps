@@ -401,7 +401,7 @@ corShiftSize = input.float(defval = 0.01, title = "Corrective  shift size (%)", 
 corShiftSize /= 100
 useCorShiftAuto = input.bool(defval = false, title = "Auto corrective shift size", group = "CORRECTIVE SHIFT", tooltip = "en: Correction size will be calculated automatically by Fibonacci zones.\n\nru: Величина коррекции будет рассчитана автоматически по зонам Фибоначчи")  
 // corShiftAutoFibo = input.string(defval = "AlgoFibo: 0.236-0.786", options = ["AlgoFibo: 0.236-0.786", "AlgoFibo: 0.296-0.704", "AlgoFibo: 0.386-0.618"],  title = "Fibo zones for auto cor. size", group = "CORRECTIVE SHIFT")
-sensitivity_input = input.float(title = 'Fibo length for auto (bars)', step = 1, defval = 12, group = "CORRECTIVE SHIFT")
+sensitivity_input = input.float(title = 'Fibo length for auto (bars)', step = 1, defval = 12, group = "CORRECTIVE SHIFT", tooltip = "en: Amount of bars for Fibonacci channel length. Needed to calculate auto-correction size\n\nru: Кол-во баров для длины канала Фибоначчи. Нужно для рассчета размера авто-коррекции")
 useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group = "CORRECTIVE SHIFT", tooltip = "en: Don't open the position after a certain amount of bars\n\nru: Не открывать позицию после определенного кол-ва баров")  
 corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
 
