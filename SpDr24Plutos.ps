@@ -656,7 +656,11 @@ imba_trend_line = fib_5
 // CAN LONG/SHORT
 if time < start_date_input
     canLongNew := false
-    canLongNew := false
+    canShortNew := false
+
+// plot(time < start_date_input ? 1 : 0)
+// plot(canLongNew ? 1 : 0)
+// plot(time < start_date_input ? 1 : 0)
 
 if time >= start_date_input
     can_long := close >= imba_trend_line and close >= fib_236 and not is_long_trend
@@ -1016,8 +1020,8 @@ if useMaxDrawdown and strategy.max_drawdown_percent >= maxDrawdown
 // plot(maxDrawdown)
 // plot(strategy.max_drawdown_percent)
 
-plotshape(((can_long and useNewSignal == false) or (canLongNew and useNewSignal)) and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and useCorShift ? imba_trend_line : na, title="Long", style=shape.arrowup, location=location.belowbar, color=color.green, size=size.small)
-plotshape(((can_short and useNewSignal == false) or (canShortNew and useNewSignal)) and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and useCorShift ? imba_trend_line : na, title="Short", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
+plotshape(canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and useCorShift ? imba_trend_line : na, title="Long", style=shape.arrowup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and useCorShift ? imba_trend_line : na, title="Short", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
 
 
 // Position mode
@@ -1029,7 +1033,7 @@ else if strDirection == "only short"
     canLongNew := false
 
 // Entries
-if (((can_long and useNewSignal == false) or (canLongNew and useNewSignal)) and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
+if (canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
     tradeSide := "LONG"
     canDrawCor := false
     
@@ -1088,7 +1092,7 @@ if (((can_long and useNewSignal == false) or (canLongNew and useNewSignal)) and 
             // if tp4_percent_fix != 0
             //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
-if (((can_short and useNewSignal == false) or (canShortNew and useNewSignal)) and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
+if (canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
     tradeSide := "SHORT"
     canDrawCor := false
     if useCorShift and corShiftShort == false
