@@ -348,10 +348,10 @@ useNewSignal = true
 // sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
 // vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
 // vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
+vc = input.float(defval = 2.0, step = 0.05, title='Factor', group = POSITION)
 vklfbar = input(title='Entry bar filter', defval=true, group=POSITION)
 vklca = input(title='Price smoothing', defval=true, group=POSITION)
 vklfvol = input(title='Volume comparing', defval=true, group=POSITION)
-vc = input.float(defval = 2.0, step = 0.05, title='Volume comparing factor', group = POSITION)
 
 // vklfvol = false
 // vklca = true
