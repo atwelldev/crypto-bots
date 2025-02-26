@@ -627,15 +627,15 @@ if bar_index > last_bar_index - maxDistanceToLastBar
             newTS.lastHour := lastHourTime
             tsList.unshift(newTS)
             lastTS := newTS
-            log.info("New Turtle Soup")
+            // log.info("New Turtle Soup")
 
         if not na(lastTS)
             // Find Liquidity Breaks
             if lastTS.state == "Waiting For Liquidity Break"
-                log.info("Wait For Liq Grab")
+                // log.info("Wait For Liq Grab")
                 if time > lastTS.startTime
                     if (breakoutMethod == "Close" ? close : low) < lastTS.lastHourLow
-                        log.info("Sellside Liq Grab")
+                        // log.info("Sellside Liq Grab")
                         if entryMethod == "Classic" or highBreaks > lowBreaks
                             lastTS.brokenSweep := Sweep.new(lastTS.lastHour, time, "Sellside", lastTS.lastHourLow)
                             lastTS.entryType := "Long"
@@ -647,7 +647,7 @@ if bar_index > last_bar_index - maxDistanceToLastBar
                         lastTS.state := "Waiting For Execution"
                     
                     else if (breakoutMethod == "Close" ? close : high) > lastTS.lastHourHigh
-                        log.info("Buyside Liq Grab")
+                        // log.info("Buyside Liq Grab")
                         if entryMethod == "Classic" or highBreaks <= lowBreaks
                             lastTS.brokenSweep := Sweep.new(lastTS.lastHour, time, "Buyside", lastTS.lastHourHigh)
                             lastTS.entryType := "Short"
@@ -659,7 +659,7 @@ if bar_index > last_bar_index - maxDistanceToLastBar
             // Execute
             if lastTS.state == "Waiting For Execution"
                 if time > lastTS.brokenSweep.endTime
-                    log.info("MSS Execution")
+                    // log.info("MSS Execution")
                     if lastTS.entryType == "Short"
                         if (breakoutMethod == "Close" ? close : low) < lowMSS[1]
                             sellAlertTick := true
@@ -688,7 +688,7 @@ if bar_index > last_bar_index - maxDistanceToLastBar
     // Entry Taken
     if not na(lastTS)
         if lastTS.state == "Entry Taken"
-            log.info("Entry Taken")
+            // log.info("Entry Taken")
             if tpslMethod == "Fixed"
                 // Take Profit
                 if lastTS.entryType == "Long" and ((high / lastTS.entryPrice) - 1) * 100 >= tpPercent
@@ -779,10 +779,10 @@ if not na(lastTS)
 if barstate.islastconfirmedhistory
     initRun := false
 
-alertcondition(buyAlertTick and not initRun, "Buy Signal", "")
-alertcondition(sellAlertTick and not initRun, "Sell Signal", "")
-alertcondition(tpAlertTick and not initRun, "Take-Profit Signal", "")
-alertcondition(slAlertTick and not initRun, "Stop-Loss Signal", "")
+// alertcondition(buyAlertTick and not initRun, "Buy Signal", "")
+// alertcondition(sellAlertTick and not initRun, "Sell Signal", "")
+// alertcondition(tpAlertTick and not initRun, "Take-Profit Signal", "")
+// alertcondition(slAlertTick and not initRun, "Stop-Loss Signal", "")
 
 if not initRun
     if buyAlertTick and buyAlertEnabled
