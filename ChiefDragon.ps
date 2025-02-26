@@ -1,3 +1,9 @@
+
+//@version=5
+strategy(title='ChiefDragon v1.3.0-Stable', shorttitle='ChiefDragon v1.3.0-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+import TradingView/Strategy/3
+
+
 //FUNCTIONS
 RoundUp(number, decimals) =>
     factor = math.pow(10, decimals)
@@ -281,10 +287,6 @@ color entry_color = color.rgb(120, 123, 134, tp_sl_entry_transparent)
 color sl_color = color.new(color.orange, tp_sl_entry_transparent)
 line_style = line.style_dotted
 
-
-//@version=5
-strategy(title='ChiefDragon v1.3.0-Stable', shorttitle='ChiefDragon v1.3.0-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
-import TradingView/Strategy/3
 
 //---------------------------------------------------SETTINGS----------------------------------------------------------\\
 // STRATS
@@ -580,25 +582,25 @@ atrNew = ta.atr(atrLen)
 diffPercent (float val1, float val2) =>
     (math.abs(val1 - val2) / val2) * 100.0
 
-getPosition (positionText) =>
-    if positionText == "Top Right"
-        position.top_right
-    else if positionText == "Top Center"
-        position.top_center
-    else if positionText == "Right Center"
-        position.middle_right
-    else if positionText == "Left Center"
-        position.middle_left
-    else if positionText == "Bottom Center"
-        position.bottom_center
-    else if positionText == "Middle Center"
-        position.middle_center
+// getPosition (positionText) =>
+//     if positionText == "Top Right"
+//         position.top_right
+//     else if positionText == "Top Center"
+//         position.top_center
+//     else if positionText == "Right Center"
+//         position.middle_right
+//     else if positionText == "Left Center"
+//         position.middle_left
+//     else if positionText == "Bottom Center"
+//         position.bottom_center
+//     else if positionText == "Middle Center"
+//         position.middle_center
 
 tfInMin = timeframe.in_seconds() / 60
 
 //#region Liqs
-if timeframe.in_seconds(higherTimeframe) <= timeframe.in_seconds()
-    runtime.error("Higher timeframe must be higher than current timeframe.")
+// if timeframe.in_seconds(higherTimeframe) <= timeframe.in_seconds()
+    // runtime.error("Higher timeframe must be higher than current timeframe.")
 int htfMins = timeframe.in_seconds(higherTimeframe) / 60
 int barLength = htfMins / tfInMin
 float high12 = ta.highest(barLength)
@@ -784,16 +786,16 @@ if barstate.islastconfirmedhistory
 // alertcondition(tpAlertTick and not initRun, "Take-Profit Signal", "")
 // alertcondition(slAlertTick and not initRun, "Stop-Loss Signal", "")
 
-if not initRun
-    if buyAlertTick and buyAlertEnabled
-        alert("Buy Signal")
-    if sellAlertTick and sellAlertEnabled
-        alert("Sell Signal")
+// if not initRun
+//     if buyAlertTick and buyAlertEnabled
+//         alert("Buy Signal")
+//     if sellAlertTick and sellAlertEnabled
+//         alert("Sell Signal")
     
-    if tpAlertTick and tpAlertEnabled
-        alert("Take-Profit Signal")
-    if slAlertTick and slAlertEnabled
-        alert("Stop-Loss Signal")
+//     if tpAlertTick and tpAlertEnabled
+//         alert("Take-Profit Signal")
+//     if slAlertTick and slAlertEnabled
+//         alert("Stop-Loss Signal")
 
 
 
