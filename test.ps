@@ -1764,7 +1764,7 @@ if show_strategy_panel
     table.cell(strategy_table, 3, 15, "Stop on max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 4, 15, str.tostring(useMaxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 16, "Max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 16, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 4, 16, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 14, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 4, 14, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 
@@ -1775,16 +1775,3 @@ if show_strategy_panel
     // table.cell(strategy_table, 1, 16, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 2, 16, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 
-
-// useVolVWAP = input.bool(defval = false, title='Use volume filter: "VWAP"', group = POSITION)
-
-// useTFRSI = input.bool(defval = false, title = "Use additional TF for RSI", group = rsi_group,  tooltip = "en: Use RSI data from older or younger timeframe\n\nru: Использовать RSI со более старшего или более младшего таймфрейма")
-// TFRSILen = input.int(title="Length (bars) for add-l RSI TF", step = 1, defval=14, group = rsi_group)
-// TFRSI = input.string(title="Additional RSI TF (minutes)", options = ["1", "5", "15", "30", "60", "120", "180", "240", "D", "W", "M"], defval="15", group = rsi_group)
-
-
-
-// useVolAnomaly = input.bool(defval = false, title='Use volume filter: "Anomaly"', group = "VOLUMES")
-// volAnomalyReverse = input.bool(defval = false, title='Reverse volume "Anomaly"', group = "VOLUMES", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
-// volAnomalyMult = input.float(defval = 2.0, step = 0.05, title='Volume multiplier for "Anomaly"', group = "VOLUMES")
-// volAnomalySMALen = input.int(defval = 20, step = 1, title='SMA length for "Anomaly"', group = "VOLUMES")
