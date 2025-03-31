@@ -1,0 +1,1569 @@
+//FUNCTIONS
+RoundUp(number, decimals) =>
+    factor = math.pow(10, decimals)
+    math.ceil(number * factor) / factor
+calc_rr(float entry_price, float sl_price, float take_price) => 
+    entry_price > sl_price ? (take_price - entry_price) / (entry_price - sl_price) : (entry_price - take_price) / (sl_price - entry_price)
+
+create_trend_line(float sensitivity, float fib) =>
+    high_line = ta.highest(high, int(sensitivity))
+	low_line = ta.lowest(low, int(sensitivity))
+	channel_range = high_line - low_line
+	high_line - channel_range * fib
+//FUNCTIONS
+// TYPES AND METHODS
+type Strategy_settings
+	float sensitivity = 0
+	float risk_percent = 1
+	string break_even_target = "1"
+	float tp1_percent = 0
+	float tp1_percent_fix = 0
+	float tp2_percent = 0
+	float tp2_percent_fix = 0
+	float tp3_percent = 0
+	float tp3_percent_fix = 0
+	float tp4_percent = 0
+	float tp4_percent_fix = 0
+	bool fixed_stop = false
+	float sl_percent = 0
+    float trailPercent = 20
+
+type Trade
+    int start_bar_index = 0
+    string side
+    float market_order_comission
+    float limit_order_comission
+    float entry_price
+    bool entry_hit = false
+    float sl_price
+    float tp1_price
+	float tp1_percent_fix
+    float tp2_price
+	float tp2_percent_fix
+    float tp3_price
+	float tp3_percent_fix
+    float tp4_price
+	float tp4_percent_fix
+    float break_even_price
+    bool sl_hit = false
+    bool tp1_hit = false
+    bool tp2_hit = false
+    bool tp3_hit = false
+    bool tp4_hit = false
+    float position_size_left = 100
+	float risk_percent
+    bool is_closed = false
+    float close_price = 0
+    bool can_break_even = false
+    bool force_closed = false
+    float profit = 0
+    float risk_reward
+    line entry_line
+    line stoploss_line
+    line target1_line
+    line target2_line
+    line target3_line
+    line target4_line
+
+method calc_profit(Trade trade, bool show_labels) =>
+    label trade_info_label = na
+    label entry_hit_label = na
+	label tp1_hit_label = na
+	label tp2_hit_label = na
+	label tp3_hit_label = na
+	label tp4_hit_label = na
+	label sl_hit_label = na
+	label be_hit_label = na
+	float profit = 0.0
+	if trade.side == "LONG"
+        if low <= trade.entry_price and not trade.entry_hit
+            trade.start_bar_index := bar_index
+            trade.entry_hit := true
+            entry_hit_label := label.new(trade.start_bar_index, trade.entry_price, str.tostring("ENTRY HIT"), style = label.style_label_right)
+            trade_info_label := label.new(bar_index, high, "Trade info:" + "\nEntry: " + str.tostring(trade.entry_price) + "\nTp1: " + str.tostring(trade.tp1_price) + "\nTp2: " + str.tostring(trade.tp2_price) + "\nTp3:" +  str.tostring(trade.tp3_price) + "\nTp4: " + str.tostring(trade.tp4_price) + "\nSl: " + str.tostring(trade.sl_price))
+        if high >= trade.tp1_price and not trade.tp1_hit and trade.entry_hit
+            trade.tp1_hit := true
+            trade.position_size_left -= trade.tp1_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp1_price) * trade.tp1_percent_fix / 100 * trade.risk_percent
+            tp1_hit_label := label.new(trade.start_bar_index, trade.tp1_price, str.tostring("TP1 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if high >= trade.tp2_price and not trade.tp2_hit and trade.entry_hit
+            trade.tp2_hit := true
+            trade.can_break_even := true
+            trade.position_size_left -= trade.tp2_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp2_price) * trade.tp2_percent_fix / 100 * trade.risk_percent
+            tp2_hit_label := label.new(trade.start_bar_index, trade.tp2_price, str.tostring("TP2 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if high >= trade.tp3_price and not trade.tp3_hit and trade.entry_hit
+            trade.tp3_hit := true
+            trade.position_size_left -= trade.tp3_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp3_price) * trade.tp3_percent_fix / 100 * trade.risk_percent
+            tp3_hit_label := label.new(trade.start_bar_index, trade.tp3_price, str.tostring("TP3 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if high >= trade.tp4_price and not trade.tp4_hit and trade.entry_hit
+            trade.tp4_hit := true
+            trade.is_closed := true
+            trade.position_size_left -= trade.tp4_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp4_price) * trade.tp4_percent_fix / 100 * trade.risk_percent
+            tp4_hit_label := label.new(trade.start_bar_index, trade.tp4_price, str.tostring("TP4 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if high >= trade.break_even_price and not trade.can_break_even and trade.entry_hit
+            trade.can_break_even := true
+        //BE ENTRY HIT
+        if trade.can_break_even and trade.entry_hit
+            if low <= trade.entry_price and not (close >= open) and bar_index != trade.start_bar_index
+                trade.is_closed := true
+                be_hit_label := label.new(bar_index, trade.entry_price, str.tostring("BE HIT"), style = label.style_label_left)
+        // SL HIT
+        if low <= trade.sl_price and not trade.can_break_even and trade.entry_hit and bar_index != trade.start_bar_index
+            trade.sl_hit := true
+            trade.is_closed := true
+            profit += -trade.risk_percent * trade.position_size_left / 100
+            sl_hit_label := label.new(bar_index, trade.sl_price, str.tostring("SL HIT ") + str.tostring(profit, "#.##") + "%", color = color.red, style = label.style_label_left)
+    else
+        if high >= trade.entry_price and not trade.entry_hit
+            trade.start_bar_index := bar_index
+            trade.entry_hit := true
+            entry_hit_label := label.new(trade.start_bar_index, trade.entry_price, str.tostring("ENTRY HIT"), style = label.style_label_right)
+            trade_info_label := label.new(bar_index, high, "Trade info:" + "\nEntry: " + str.tostring(trade.entry_price) + "\nTp1: " + str.tostring(trade.tp1_price) + "\nTp2: " + str.tostring(trade.tp2_price) + "\nTp3:" +  str.tostring(trade.tp3_price) + "\nTp4: " + str.tostring(trade.tp4_price) + "\nSl: " + str.tostring(trade.sl_price))
+        if low <= trade.tp1_price and not trade.tp1_hit and trade.entry_hit
+            trade.tp1_hit := true
+            trade.position_size_left -= trade.tp1_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp1_price) * trade.tp1_percent_fix / 100 * trade.risk_percent
+            tp1_hit_label := label.new(trade.start_bar_index, trade.tp1_price, str.tostring("TP1 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if low <= trade.tp2_price and not trade.tp2_hit and trade.entry_hit
+            trade.tp2_hit := true
+            trade.position_size_left -= trade.tp2_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp2_price) * trade.tp2_percent_fix / 100 * trade.risk_percent
+            tp2_hit_label := label.new(trade.start_bar_index, trade.tp2_price, str.tostring("TP2 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if low <= trade.tp3_price and not trade.tp3_hit and trade.entry_hit
+            trade.tp3_hit := true
+            trade.position_size_left -= trade.tp3_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp3_price) * trade.tp3_percent_fix / 100 * trade.risk_percent
+            tp3_hit_label := label.new(trade.start_bar_index, trade.tp3_price, str.tostring("TP3 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if low <= trade.tp4_price and not trade.tp4_hit and trade.entry_hit
+            trade.tp4_hit := true
+            trade.is_closed := true
+            trade.position_size_left -= trade.tp4_percent_fix
+            profit += calc_rr(trade.entry_price, trade.sl_price, trade.tp4_price) * trade.tp4_percent_fix / 100  * trade.risk_percent
+            tp4_hit_label := label.new(trade.start_bar_index, trade.tp4_price, str.tostring("TP4 HIT +") + str.tostring(profit, "#.##") + "%" + "\nPosition size %: " + str.tostring(trade.position_size_left), style = label.style_label_right)
+        if low <= trade.break_even_price and not trade.can_break_even and trade.entry_hit
+            trade.can_break_even := true
+        //BE ENTRY HIT
+        if trade.can_break_even and trade.entry_hit
+            if high >= trade.entry_price and not (close <= open) and bar_index != trade.start_bar_index
+                trade.is_closed := true
+                be_hit_label := label.new(bar_index, trade.entry_price, str.tostring("BE HIT"), style = label.style_label_left)
+        // SL HIT
+        if high >= trade.sl_price and not trade.can_break_even and trade.entry_hit and bar_index != trade.start_bar_index
+            trade.sl_hit := true
+            trade.is_closed := true
+            profit += -trade.risk_percent * trade.position_size_left / 100
+            sl_hit_label := label.new(bar_index, trade.sl_price, str.tostring("SL HIT ") + str.tostring(profit, "#.##") + "%", color = color.red, style = label.style_label_left)
+    trade.profit += profit
+	if not show_labels
+        label.delete(entry_hit_label)
+		label.delete(tp1_hit_label)
+		label.delete(tp2_hit_label)
+		label.delete(tp3_hit_label)
+		label.delete(tp4_hit_label)
+		label.delete(sl_hit_label)
+		label.delete(be_hit_label)
+        label.delete(trade_info_label)
+
+method close_trade(Trade trade, bool show_labels) =>
+    float profit = 0.0
+    label trade_closed_label = na
+    trade.force_closed := true
+    if not trade.sl_hit
+        if trade.side == "SHORT"
+            trade.is_closed := true
+            trade.close_price := close
+            if close <= trade.entry_price
+                percent_from_entry_to_close_price_at_trend_change =  math.abs((close / trade.entry_price) * 100)
+                percent_from_entry_to_sl_price = math.abs((trade.entry_price / trade.sl_price) * 100)
+                profit := calc_rr(trade.entry_price, trade.sl_price, close) * trade.position_size_left / 100 * trade.risk_percent
+            else
+                profit := calc_rr(trade.entry_price, trade.sl_price, close) * trade.position_size_left / 100 * trade.risk_percent
+            string sign = profit >= 0 ? "+" : na
+            trade_closed_label := label.new(bar_index, high, str.tostring("TRADE CLOSED ") + sign + str.tostring(profit, "#.##") + "%")
+        else
+            trade.is_closed := true
+            trade.close_price := close
+            if close <= trade.entry_price
+                percent_from_entry_to_close_price_at_trend_change =  math.abs((close / trade.entry_price - 1) * 100)
+                percent_from_entry_to_sl_price = math.abs((trade.entry_price / trade.sl_price - 1) * 100)
+                profit := -trade.risk_percent * (percent_from_entry_to_close_price_at_trend_change / percent_from_entry_to_sl_price) * trade.position_size_left / 100 + trade.profit
+            else
+                profit := calc_rr(trade.entry_price, trade.sl_price, close) * trade.position_size_left / 100 * trade.risk_percent
+            string sign = profit >= 0 ? "+" : na
+            trade_closed_label := label.new(bar_index, low, str.tostring("TRADE CLOSED ") + sign + str.tostring(profit, "#.##") + "%", style = label.style_label_up)
+    if not show_labels
+        label.delete(trade_closed_label)
+    trade.profit += profit
+// TYPES AND METHODS
+
+// STRATS
+selector(string strategy_name) =>
+	strategy_settings = Strategy_settings.new()
+	switch strategy_name
+		"MANUAL" =>
+			strategy_settings.sensitivity := 18
+			strategy_settings.risk_percent := 1
+			strategy_settings.break_even_target := "1"
+			strategy_settings.tp1_percent := 1
+			strategy_settings.tp1_percent_fix := 40
+			strategy_settings.tp2_percent := 2
+			strategy_settings.tp2_percent_fix := 30
+			strategy_settings.tp3_percent := 3
+			strategy_settings.tp3_percent_fix := 20
+			strategy_settings.tp4_percent := 4
+			strategy_settings.tp4_percent_fix := 10
+			strategy_settings.fixed_stop := false
+			strategy_settings.sl_percent := 0.0
+            strategy_settings.trailPercent := 1
+		"UNIVERSAL 15m" => 
+			strategy_settings.sensitivity := 20
+			strategy_settings.risk_percent := 1
+			strategy_settings.break_even_target := "1"
+			strategy_settings.tp1_percent := 1
+			strategy_settings.tp1_percent_fix := 40
+			strategy_settings.tp2_percent := 2
+			strategy_settings.tp2_percent_fix := 30
+			strategy_settings.tp3_percent := 3
+			strategy_settings.tp3_percent_fix := 20
+			strategy_settings.tp4_percent := 4
+			strategy_settings.tp4_percent_fix := 10
+			strategy_settings.fixed_stop := false
+			strategy_settings.sl_percent := 0.0
+		"SOL 5m" => 
+			strategy_settings.sensitivity := 20
+			strategy_settings.risk_percent := 1
+			strategy_settings.break_even_target := "1"
+			strategy_settings.tp1_percent := 1
+			strategy_settings.tp1_percent_fix := 40
+			strategy_settings.tp2_percent := 2
+			strategy_settings.tp2_percent_fix := 30
+			strategy_settings.tp3_percent := 3
+			strategy_settings.tp3_percent_fix := 20
+			strategy_settings.tp4_percent := 4
+			strategy_settings.tp4_percent_fix := 10
+			strategy_settings.fixed_stop := false
+			strategy_settings.sl_percent := 0.0
+	strategy_settings
+// STRATS
+
+string STRATEGIES = "STRATEGIES"
+string POSITION = "POSITION"
+string ENTRY = "ENTRY"
+string TAKE_PROFITS = "TAKE PROFITS"
+string STOP_LOSS = "STOPLOSS & TRAIL"
+string rsi_group = "RSI"
+string main_group = "MAIN"
+string info_panel_group = "INFOPANELS"
+string dev_settings = "DEVELOPER MODE"
+
+int fibo_lines_transparend = 60
+int fill_best_transparend = 95
+int fill_worst_transparend = 98
+
+color high_line_color = color.rgb(36, 255, 44, fibo_lines_transparend)
+color fib_236_color = color.rgb(130, 228, 74, fibo_lines_transparend)
+color fib_382_color = color.rgb(171, 224, 174, fibo_lines_transparend)
+color fib_618_color = color.rgb(235, 255, 51, fibo_lines_transparend)
+color fib_786_color = color.rgb(255, 131, 73, fibo_lines_transparend)
+color low_line_color = color.rgb(255, 82, 82, fibo_lines_transparend)
+
+color high_best_fill_color = color.new(color.lime, fill_best_transparend)
+color high_worst_fill_color = color.new(color.lime, fill_worst_transparend)
+color low_best_fill_color = color.new(color.red, fill_best_transparend)
+color low_worst_fill_color = color.new(color.red, fill_worst_transparend)
+
+tp_sl_entry_transparent = 30
+color tp_color = color.new(color.yellow, tp_sl_entry_transparent)
+color entry_color = color.rgb(120, 123, 134, tp_sl_entry_transparent)
+color sl_color = color.new(color.orange, tp_sl_entry_transparent)
+line_style = line.style_dotted
+
+
+//@version=5
+strategy(title='PrimeRaptor v1.3.1-Stable', shorttitle='PrimeRaptor v1.3.1-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500)
+import TradingView/Strategy/3
+
+//---------------------------------------------------SETTINGS----------------------------------------------------------\\
+// STRATS
+var float sensitivity = 18
+float risk_percent = 1
+string break_even_target = "2"
+float tp1_percent = 0
+float tp1_percent_fix = 0
+float tp2_percent = 0
+float tp2_percent_fix = 0
+float tp3_percent = 0
+float tp3_percent_fix = 0
+float tp4_percent = 0
+float tp4_percent_fix = 0
+bool fixed_stop = false
+float sl_percent = 0
+float trailPercent = 1
+
+// strategy_input = input.string(title = "STRATEGY", options = [
+//      "MANUAL",
+//      "UNIVERSAL 15m",
+//      "===============",
+//      "-------A-------",
+//      "-------B-------",
+//      "-------C-------",
+//      "-------D-------",
+//      "-------E-------",
+//      "-------F-------",
+//      "-------G-------",
+//      "-------H-------",
+//      "-------I-------",
+//      "-------J-------",
+//      "-------K-------",
+//      "-------L-------",
+//      "-------M-------",
+//      "-------N-------",
+//      "-------O-------",
+//      "-------P-------",
+//      "-------Q-------",
+//      "-------R-------",
+//      "-------S-------",
+//      "SOL 5m",
+//      "-------T-------",
+//      "-------U-------",
+//      "-------V-------",
+//      "-------W-------",
+//      "-------X-------",
+//      "-------Y-------",
+//      "-------Z-------"
+//      ], defval = "MANUAL", tooltip = "EN:\nTo manually configure the strategy, select MANUAL otherwise, changing the settings won't have any effect\n\nru:\nЧтобы настроить стратегию вручную, выберите MANUAL в противном случае изменение настроек не будет иметь никакого эффекта")
+strategy_input = "MANUAL"
+
+
+// POSITION
+posMode = input.string(title = "Entry mode (directions)", options = ["long/short","only long","only short", "auto"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\n\nru: Доступные направления позиции")
+int  autoLength     = input.int(defval = 240, title="Trend length for auto mode (bars)", minval = 15, step = 5, group = POSITION, tooltip = "en: If auto mode is chosen, strategy calculates middle term trend (by defined size of trend) and decide, what's kind of entries (long or short) should be used \n\nru: Если выбран автоматическией режим, то стратегия вычисляет среднесрочный тренд (на основе указанного кол-ва баров) и решает, в какую позицию (лонг или шорт) входить") // Length for the moving average calculations
+
+// useNewSignal = input.bool(title = "Use new signal", defval = false, group = POSITION)
+useNewSignal = true
+// rr = input.float(2.0, title='Risk Reward', group='NEW SIGNAL')
+// sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
+// vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
+// vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
+vc = input.float(defval = 2.0, step = 0.05, title='Factor', group = POSITION)
+vklfbar = input(title='Entry bar filter', defval=true, group=POSITION)
+vklca = input(title='Price smoothing', defval=true, group=POSITION)
+vklfvol = input(title='Volume comparing', defval=true, group=POSITION)
+
+// vklfvol = false
+// vklca = true
+// vklfrsi = input(title='Enable RSI filter', defval=true, group='NEW SIGNAL')
+// vklfvol = true
+// vklfbar = true
+
+
+start_date_input = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = POSITION, tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+
+show_tp_enty_sl = input.bool(defval = true, title = "Show position lines", group = POSITION, inline = "2.1")
+show_strategy_panel = input.bool(defval = true, title = "Show settings panel", group = POSITION, inline = "2.1")
+// fill_positions = input.bool(defval = true, title = "Fill position", group = POSITION, inline = "2.1")
+fill_positions = true
+// risk_percent_input = input.float(title = "Risk %", step = 1, defval = 1, group = POSITION, tooltip = "EN:\nMaximum allowable loss % of the deposit per 1 trade\n\nru:\nМаксимально допустимая потеря % от депозита на 1 сделку")
+risk_percent_input = 1
+// break_even_target_input = input.string(title = "BE target", options = ["WITHOUT","1","2","3"], defval = "1", group = POSITION)
+break_even_target_input = "1"
+// initial_deposit_input = input.float(title = "Initial deposit", defval = 1000, step = 100, group = POSITION)
+initial_deposit_input = 1000
+
+// TAKE PROFITS
+onceTP = input.bool(title="Use only 1 takeprofit (Takeprofit-1)", defval=false, group = TAKE_PROFITS,  tooltip = "en: 1 TP will close the position completely, 'Size (%)' will not affect\n\nru: Первый тейкпрофит закроет позицию полностью, 'Size (%)' не возымеет эффекта")
+tp1_percent_input = input.float(title="Takeprofit-1", step = 0.05, defval=0.1, minval = 0, group = TAKE_PROFITS, inline = "2.2")
+tp1_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=30, group = TAKE_PROFITS, inline = "2.2")
+tp2_percent_input = input.float(title="Takeprofit-2", step = 0.05, defval=0.2, minval = 0, group = TAKE_PROFITS, inline = "2.3")
+tp2_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=30, group = TAKE_PROFITS, inline = "2.3")
+tp3_percent_input = input.float(title="Takeprofit-3", step = 0.05, defval=0.3, minval = 0, group = TAKE_PROFITS, inline = "2.4")
+tp3_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=40, group = TAKE_PROFITS, inline = "2.4")
+// tp4_percent_input = input.float(title="Takeprofit-4", step = 0.05, defval=0.4, minval = 0, group = TAKE_PROFITS, inline = "2.5")
+tp4_percent_input = 0
+// tp4_percent_fix_input = input.float(title = "Size (%)", step = 5, defval=10, group = TAKE_PROFITS, inline = "2.5")
+tp4_percent_fix_input = 0
+
+// STOPLOSS & TRAIL
+// fixed_stop_input = input.bool(defval = true, title = "Fixed stoploss", group = STOP_LOSS, tooltip = "en: Fix or auto\n\nru: Фиксированный или автоматический")
+fixed_stop_input = true
+sl_percent_input = input.float(title="Stoploss (%)", step = 0.1, defval=0.3, group = STOP_LOSS)
+trailPercent_input = input.float(title="Trailing (%)", step = 0.05, defval = 0.1, group = STOP_LOSS)
+trailTP = input.int(title="TP-num for trailing", options = [1, 2], defval = 1, group = STOP_LOSS, tooltip = "en: Number of takeprofit that launches trailing\n\nru: Номер тейка, запускающий трейлинг")
+trailWithPercent = input.bool(title = "Trail after % of price", defval = false, group = STOP_LOSS, tooltip = "en: Trail will only start with % of price. 'TP-num for trailing' will not affect\n\nru: Трейл запускается от % от изначальной цены, 'TP-num for trailing' не возымеет эффекта")
+trailStartPercent = input.float(title="% for trail start", step = 0.05, defval=0.5, minval = 0.00001, group = STOP_LOSS)
+trailStartPercent /= 100
+
+// Correction shift
+useCorShift = input.bool(defval = false, title = "Use corrective shift", group = "CORRECTIVE SHIFT", tooltip = "en: To open positions after correction. The strategy waits for the price to cross the entry price (by signal) by the specified percentage then opens position. Waiting for correction ends if a new signal is received or the price has crossed the 1 TP level.\n\nru: Открывать позицию после коррекции. Стратегия ждет, когда цена пересечет изначальную цену входа (от сигнала) на указанный %, затем открывает позицию. Ожидание коррекции прекращается, если был получен новый сигнал или цена пересекла уровень 1-TP")
+corShiftMode = input.string(title = "Move or not TP/SL", defval = "Move TP/SL", options = ["Move TP/SL", "Don't move TP/SL"], group = "CORRECTIVE SHIFT", tooltip = "en: Move or not TP/SL levels after entry. If 'Don't move TP/SL' is chosen, doesn't open positions in case that current price is crossing SL while waiting for correction\n\nru: Перемещать или нет уровни TP/SL. Если режим 'Don't move TP/SL' выбран, не открывает позицию, если цена пересекает уровень SL при ожидании коррекции")
+corShiftSize = input.float(defval = 0.01, title = "Corrective  shift size (%)", group = "CORRECTIVE SHIFT", step = 0.05, minval = 0)
+corShiftSize /= 100
+useCorShiftAuto = input.bool(defval = false, title = "Auto corrective shift size", group = "CORRECTIVE SHIFT", tooltip = "en: Correction size will be calculated automatically by Fibonacci zones.\n\nru: Величина коррекции будет рассчитана автоматически по зонам Фибоначчи")  
+// corShiftAutoFibo = input.string(defval = "AlgoFibo: 0.236-0.786", options = ["AlgoFibo: 0.236-0.786", "AlgoFibo: 0.296-0.704", "AlgoFibo: 0.386-0.618"],  title = "Fibo zones for auto cor. size", group = "CORRECTIVE SHIFT")
+sensitivity_input = input.float(title = 'Fibo length for auto (bars)', step = 1, defval = 12, group = "CORRECTIVE SHIFT", tooltip = "en: Amount of bars for Fibonacci channel length. Needed to calculate auto-correction size\n\nru: Кол-во баров для длины канала Фибоначчи. Нужно для рассчета размера авто-коррекции")
+useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group = "CORRECTIVE SHIFT", tooltip = "en: Don't open the position after a certain amount of bars\n\nru: Не открывать позицию после определенного кол-ва баров")  
+corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
+
+// VOLUMES
+useVolAnomaly = input.bool(defval = false, title='Use volume filter: "Anomaly"', group = "VOLUMES")
+volAnomalyReverse = input.bool(defval = false, title='Reverse volume "Anomaly"', group = "VOLUMES", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
+volAnomalyMult = input.float(defval = 2.0, step = 0.05, title='Volume multiplier for "Anomaly"', group = "VOLUMES")
+volAnomalySMALen = input.int(defval = 20, step = 1, title='SMA length for "Anomaly"', group = "VOLUMES")
+
+// useVolOBV = input.bool(defval = false, title='Use volume filter: "OBV"', group = "VOLUMES")
+// volOBVLen = input.int(defval = 2, step = 1, title='Length for "OBV"', group = "VOLUMES")
+
+useVolVWAP = input.bool(defval = false, title='Use volume filter: "VWAP"', group = "VOLUMES")
+
+
+// EMA
+useEMA = input.bool(defval = false, title = "Use EMA", group = "EMA")
+averageData = input.source(defval = close, title="Average price source", tooltip = "en: Close - current market price. Using another price source is not recommended\n\nru: Close - текущая рыночная цена. Использование других источников цены не рекомендуется", group = "EMA")
+fastLength = input.int(defval = 12, title="Short-term average length", step=1, group = "EMA", minval = 0)
+slowLength = input.int(defval = 60, title="Middle-term average length", step=1, group = "EMA", minval = 0)
+use3EMA = input.bool(defval = false, title = "Use Long-term EMA", group = "EMA")
+longLength = input.int(defval = 140, title="Long-term average length", step=1, group = "EMA", minval = 0)
+
+// RSI
+// show_rsi = input.bool(defval = false, title = "Show", group = rsi_group, inline = "3.1")
+show_rsi = false
+
+useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group)
+modeRSI = input.string(title = "Mode for RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = rsi_group, tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. ! Sensitivity = 0.1-2 is recommended. Using of this RSI-mode with EMA may give you very small number of signals !\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. ! Sensitivity = 0.1-2 рекомендуется. Использование данного RSI-режима вместе с EMA может дать очень маленькое кол-во сигналов !\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
+overbought = input.int(title="Overbought", defval=70, minval = 50, maxval = 100, step = 1, group = rsi_group)
+oversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 50, step = 1,group = rsi_group)
+len = input(title="Length (bars)", defval=14, group = rsi_group)
+// useTFRSI = input.bool(defval = false, title = "Use additional TF for RSI", group = rsi_group)
+useTFRSI = false
+// TFRSILen = input.int(title="Length (bars) for add-l RSI TF", step = 1, defval=14, group = rsi_group)
+TFRSILen = 14
+// TFRSI = input.string(title="Additional RSI TF", options = ["1", "5", "15", "30", "60", "120", "180", "240", "D", "W", "M"], defval="15", group = rsi_group)
+TFRSI = "1"
+
+// MAX DEPOLOSS,DRAWDOWN & PROFIT
+useMaxRowLoss = input.bool(defval = false, title = "Stop on max loss trades in a row", group = "STOP ON LOSS", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+maxRowLoss = input.int(defval = 2, title = "Max loss trades in a row", group = "STOP ON LOSS", step = 1, minval = 0)
+
+// useMaxDepoLoss = input.bool(defval = false, title = "Stop on max deposit loss", group = "STOP ON MAX LOSS, DRAWDOWN & PROFIT", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+// maxDepoLoss = input.float(defval = 0, title = "Max deposit loss (%)", group = "STOP ON MAX LOSS, DRAWDOWN & PROFIT", step = 0.01, minval = 0)
+
+// useMaxProfit = input.bool(defval = false, title = "Stop on max profit", group = "STOP ON MAX LOSS, DRAWDOWN & PROFIT", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+// maxProfit = input.float(defval = 0, title = "Max profit (%)", group = "STOP ON MAX LOSS, DRAWDOWN & PROFIT", step = 0.01, minval = 0)
+
+
+// INFO PANEL
+// show_profit_panel = input.bool(defval = true, title = "Show profit panel", group = info_panel_group)
+show_profit_panel = false
+
+// show_old_panel = input.bool(defval = false, title = "Show old panel", group = info_panel_group)
+show_old_panel = false
+
+
+// DEV
+// show_dev_labels = input.bool(defval = false, title = "Show", group = dev_settings, tooltip = "Shows all possible events")
+show_dev_labels = false
+
+
+// NEW SETTINGS (DEL)
+
+
+
+
+canLongNew = false
+canShortNew = false
+
+if close>open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]<open[1])  and (vklca==false or close>high[1])
+    canLongNew := true
+
+shortalert=false
+
+if close<open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]>open[1])  and (vklca==false or close<low[1])
+    canShortNew := true
+
+// Zero lag
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙐𝙎𝙀𝙍 𝙄𝙉𝙋𝙐𝙏𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+// bool show_levl  = input.bool(true, "Trend Levels") // Toggle to show trend levels
+
+varip strDirection = ""
+
+    
+// Colors for the trend levels
+color up = color.new(color.rgb(76, 175, 80), 90)
+color dn = color.new(color.rgb(255, 82, 82), 90)
+
+var box1         = box(na) // Variable to store the box
+series float atr = ta.atr(200) // Average True Range (ATR) for trend levels
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙄𝙉𝘿𝙄𝘾𝘼𝙏𝙊𝙍 𝘾𝘼𝙇𝘾𝙐𝙇𝘼𝙏𝙄𝙊𝙉𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+
+series float emaValue   = ta.ema(close, autoLength) // EMA of the closing price
+series float correction = close + (close - emaValue) // Correction factor for zero-lag calculation
+series float zlma       = ta.ema(correction, autoLength) // Zero-Lag Moving Average (ZLMA)
+
+bool  signalUp          = ta.crossover(zlma, emaValue) // Signal for bullish crossover
+bool  signalDn          = ta.crossunder(zlma, emaValue) // Signal for bearish crossunder
+
+// Determine the color of ZLMA based on its direction
+color zlma_color        = zlma > zlma[3] ? up : zlma < zlma[3] ? dn : na
+color ema_col           = emaValue < zlma ? up : dn // Determine the EMA color
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙑𝙄𝙎𝙐𝘼𝙇𝙄𝙕𝘼𝙏𝙄𝙊𝙉
+// --------------------------------------------------------------------------------------------------------------------{
+
+// Plot the Zero-Lag Moving Average
+// p1 = plot(zlma,     color = zlma_color, linewidth = 1) // Plot ZLMA
+// p2 = plot(emaValue, color = ema_col,    linewidth = 1) // Plot EMA
+// fill(p1, p2, zlma, emaValue, color.new(zlma_color, 80), color.new(ema_col, 80)) // Fill between ZLMA and EMA
+
+
+// Определяем текущее направление входов
+if posMode != "auto"
+    strDirection := posMode
+else
+    if signalUp
+        strDirection := "only long"
+    else if signalDn
+        strDirection := "only short"
+// _______________________________
+
+// Method to draw a box on the chart
+method draw_box(color col, top, bot, price)=>
+    box.new(
+             bar_index, top, bar_index, bot, col, 1, 
+             bgcolor         = col, 
+             text            = "Current mode: " + strDirection, 
+             text_size       = size.normal,
+             text_color      = chart.fg_color,
+             text_halign     = text.align_center
+             )
+
+
+
+if posMode == "auto"
+    // Logic to draw trend levels as boxes on the chart
+    bool check_signals = signalUp or signalDn // Check if there is an up or down signal
+
+    switch
+        // Draw a box when a bullish signal is detected
+        signalUp => box1 := up.draw_box(zlma, zlma - atr, close)
+        // Draw a box when a bearish signal is detected
+        signalDn => box1 := dn.draw_box(zlma + atr, zlma, close)
+    switch
+        // Extend the right side of the box if no new signal is detected
+        not signalUp or not signalDn => box1.set_right(bar_index + 4)  
+        => box1 := box(na) // Otherwise, reset the box
+    // switch
+        // Add a downward label when price crosses below the bottom of the box
+        // ta.crossunder(high, box1.get_bottom()) and not check_signals[1] and not check_signals and emaValue > zlma=>
+            // label.new(bar_index - 1, high[1], "▼", color = color(na), textcolor = dn, style = label.style_label_down)
+        // Add an upward label when price crosses above the top of the box
+        // ta.crossover(low, box1.get_top()) and not check_signals and not check_signals[1] and emaValue < zlma=>
+            // label.new(bar_index - 1, low[1],  "▲", color = color(na), textcolor = up, style = label.style_label_up)
+
+// Plot shapes for up and down signals
+// plotshape(signalUp ? zlma : na, "", shape.diamond, location.absolute, color = up, size = size.tiny)
+// plotshape(signalDn ? zlma : na, "", shape.diamond, location.absolute, color = dn, size = size.tiny)
+// // --------------------------------------------------------------------------------------------------------------------}
+
+
+
+
+//-----------------------------------------------GLOBAL VARIABLES------------------------------------------------------\\
+var float total_profit = 0.0
+var int trade_count = 0
+var int profit_trades = 0
+var int loss_trades = 0
+var int loss_streak = 0
+var int loss_in_a_row = 0
+var int win_streak = 0
+var int wins_in_a_row = 0
+var int first_trade_date = na
+var Trade trade = na
+var bool is_long_trend_started = false
+var bool is_short_trend_started = false
+var bool is_trend_change = na
+var bool is_long_trend = false
+var bool is_short_trend = false
+var bool can_long = false
+var bool can_short = false
+
+var int trend_started_bar_index = na
+var line tp1_line = na
+var label tp1_label = na
+var line tp2_line = na
+var label tp2_label = na
+var line tp3_line = na
+var label tp3_label = na
+var line tp4_line = na
+var label tp4_label = na
+var line entry_line = na
+var label entry_label = na
+var line close_line = na
+var line sl_line = na
+var label sl_label = na
+var label lable_at_signal = na
+var int signal_closed_bar = na
+var Strategy_settings strategy_s = na
+var float dep = initial_deposit_input
+
+
+
+//-----------------------------------------------------MAIN------------------------------------------------------------\\
+// STRATEGY
+
+strategy_s := strategy_input == "MANUAL" ? Strategy_settings.new(sensitivity_input, risk_percent_input, break_even_target_input, tp1_percent_input, tp1_percent_fix_input, tp2_percent_input, tp2_percent_fix_input, tp3_percent_input, tp3_percent_fix_input, tp4_percent_input, tp4_percent_fix_input, fixed_stop_input, sl_percent_input, trailPercent_input) : selector(strategy_input)
+
+sensitivity := strategy_s.sensitivity
+risk_percent := strategy_s.risk_percent
+break_even_target := strategy_s.break_even_target
+tp1_percent := strategy_s.tp1_percent
+tp1_percent_fix := strategy_s.tp1_percent_fix
+tp2_percent := strategy_s.tp2_percent
+tp2_percent_fix := strategy_s.tp2_percent_fix
+tp3_percent := strategy_s.tp3_percent
+tp3_percent_fix := strategy_s.tp3_percent_fix
+tp4_percent := strategy_s.tp4_percent
+tp4_percent_fix := strategy_s.tp4_percent_fix
+fixed_stop := strategy_s.fixed_stop
+sl_percent := strategy_s.sl_percent
+trailPercent := strategy_s.trailPercent
+
+
+// sensitivity *= 10
+tp1_percent /= 100
+tp2_percent /= 100
+tp3_percent /= 100
+tp4_percent /= 100
+tp1_percent_fix /= 100
+tp2_percent_fix /= 100
+tp3_percent_fix /= 100
+tp4_percent_fix /= 100
+sl_percent /= 100
+
+
+high_line = ta.highest(high, int(sensitivity))
+low_line = ta.lowest(low, int(sensitivity))
+channel_range = high_line - low_line
+fib_236 = high_line - channel_range * (0.236)
+fib_382 = high_line - channel_range * 0.382
+fib_5 = high_line - channel_range * 0.5
+fib_618 = high_line - channel_range * 0.618
+fib_786 = high_line - channel_range * (0.786)
+imba_trend_line = fib_5
+
+
+// if corShiftAutoFibo == "AlgoFibo: 0.236-0.786"
+//     fib_382 := high_line - channel_range * 0.236 
+//     fib_618 := high_line - channel_range * 0.786 
+// else if corShiftAutoFibo == "AlgoFibo: 0.296-0.704"
+//     fib_382 := high_line - channel_range * 0.296
+//     fib_618 := high_line - channel_range * 0.704
+// else if corShiftAutoFibo == "AlgoFibo: 0.386-0.618"
+//     fib_382 := high_line - channel_range * 0.386
+//     fib_618 := high_line - channel_range * 0.618
+
+
+// CAN LONG/SHORT
+if time < start_date_input
+    canLongNew := false
+    canShortNew := false
+
+// plot(time < start_date_input ? 1 : 0)
+// plot(canLongNew ? 1 : 0)
+// plot(time < start_date_input ? 1 : 0)
+
+if time >= start_date_input
+    can_long := close >= imba_trend_line and close >= fib_236 and not is_long_trend
+    can_short := close <= imba_trend_line and close <= fib_786 and not is_short_trend
+
+if can_long
+    is_long_trend := true
+    is_short_trend := false
+    is_long_trend_started := is_long_trend_started ? false : true
+else if can_short
+    is_short_trend := true
+    is_long_trend := false
+    is_short_trend_started := is_short_trend_started ? false : true
+else
+    is_trend_change := false
+    can_long := false
+    can_short := false
+    is_short_trend_started := false
+    is_long_trend_started := false
+
+is_trend_change := is_short_trend_started or is_long_trend_started
+// plotshape(is_long_trend and is_long_trend_started ? imba_trend_line : na, title="Long", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
+// plotshape(is_short_trend and is_short_trend_started ? imba_trend_line : na, title="Short", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
+// plot(imba_trend_line, color = is_long_trend[1] ? color.green : color.red, linewidth = 2, title = "Trend line")
+
+// LOGIC
+if not na(trade)
+    calc_profit(trade, show_dev_labels)
+    if is_trend_change and not trade.is_closed
+        close_trade(trade, show_dev_labels)
+    if not trade.is_closed
+        label.set_x(entry_label, bar_index - 3)
+        label.set_text(entry_label, str.tostring(trade.side == "LONG" ? "🔰" : "🔰")  + str.tostring(trade.entry_price))
+        label.set_x(sl_label, bar_index - 3)
+        label.set_text(sl_label, "⛔" + str.tostring(trade.sl_price))
+        label.set_x(tp1_label, bar_index - 3)
+        label.set_text(tp1_label, str.tostring(trade.tp1_hit ? "✅" : "1️⃣") + str.tostring(trade.tp1_price))
+        label.set_x(tp2_label, bar_index - 3)
+        label.set_text(tp2_label, str.tostring(trade.tp2_hit ? "✅" : "2️⃣") + str.tostring(trade.tp2_price))
+        label.set_x(tp3_label, bar_index - 3)
+        label.set_text(tp3_label, str.tostring(trade.tp3_hit ? "✅" : "3️⃣") + str.tostring(trade.tp3_price))
+        label.set_x(tp4_label, bar_index - 3)
+        label.set_text(tp4_label, str.tostring(trade.tp4_hit ? "✅" : "4️⃣") + str.tostring(trade.tp4_price))
+        line.set_xy1(tp1_line, trade.start_bar_index, trade.tp1_price)
+        line.set_xy2(tp1_line, bar_index + 1, trade.tp1_price)
+        line.set_xy1(tp2_line, trade.start_bar_index, trade.tp2_price)
+        line.set_xy2(tp2_line, bar_index + 1, trade.tp2_price)
+        line.set_xy1(tp3_line, trade.start_bar_index, trade.tp3_price)
+        line.set_xy2(tp3_line, bar_index + 1, trade.tp3_price)
+        line.set_xy1(tp4_line, trade.start_bar_index, trade.tp4_price)
+        line.set_xy2(tp4_line, bar_index + 1, trade.tp4_price)
+        line.set_xy1(entry_line, trade.start_bar_index, trade.entry_price)
+        line.set_xy2(entry_line, bar_index + 1, trade.entry_price)
+        line.set_xy1(sl_line, trade.start_bar_index, trade.sl_price)
+        line.set_xy2(sl_line, bar_index + 1, trade.sl_price)
+        
+    lable_at_signal.set_x(int(math.avg(bar_index, trade.start_bar_index)))
+    sign = trade.profit >= 0 ? "+" : na
+    // lable_at_signal.set_text(sign + str.tostring(trade.profit, "#.##") + "%")
+    // lable_at_signal.set_color(trade.profit >= 0 ? color.green : color.red)
+
+    // FILLING
+    if fill_positions
+        if trade.tp1_hit
+            linefill.new(entry_line, tp1_line, color = color.new(color.green, 85))
+        if trade.tp2_hit
+            linefill.new(tp1_line, tp2_line, color = color.new(color.green, 85))
+        if trade.tp3_hit
+            linefill.new(tp2_line, tp3_line, color = color.new(color.green, 85))
+        if trade.tp4_hit
+            linefill.new(tp3_line, tp4_line, color = color.new(color.green, 85))
+        if trade.sl_hit
+            linefill.new(sl_line, entry_line, color = color.new(color.red, 85))
+        if trade.force_closed
+            close_line := line.new(x1=trade.start_bar_index, y1=trade.close_price, x2=bar_index, y2=trade.close_price, color=color.white, style = line_style, width = 2)
+            if trade.profit <= 0
+                linefill.new(close_line, entry_line, color = color.new(color.red, 85))
+
+    if trade.is_closed
+        dep := (trade.profit / 100 * dep) + dep
+        label.delete(entry_label)
+        label.delete(sl_label)
+        label.delete(tp1_label)
+        label.delete(tp2_label)
+        label.delete(tp3_label)
+        label.delete(tp4_label)
+        total_profit += trade.profit
+        trade_count += 1
+        if trade.profit >= 0
+            profit_trades += 1
+            wins_in_a_row += 1
+            loss_in_a_row := 0
+            win_streak := wins_in_a_row > win_streak ? wins_in_a_row : win_streak
+        else
+            loss_trades += 1
+            loss_in_a_row += 1
+            wins_in_a_row := 0
+            loss_streak := loss_in_a_row > loss_streak ? loss_in_a_row : loss_streak
+        trade := na
+
+// tp1_percent /= 100
+// tp2_percent /= 100
+// tp3_percent /= 100
+// tp4_percent /= 100
+// tp1_percent_fix /= 100
+// tp2_percent_fix /= 100
+// tp3_percent_fix /= 100
+// tp4_percent_fix /= 100
+// sl_percent /= 100
+// TPsl_percent /= 100
+// fixed_stop := strategy_s.fixed_stop
+// StopTPNum
+
+//alertcondition(can_long and na(trade), "Long signal", "Long") - для лонга
+//alertcondition(can_short and na(trade), "Short signal", "Short") - для шорта
+//alertcondition(can_short or can_long and na(trade), "New signal", "Check chart to see signal direction")
+// 0.4
+
+// int StopTPNum = 3 // на каком тейке переводить позицию в безубыток, выставляется в TPsl_percent
+
+
+// Long
+// if (tradeSide == "LONG" and strategy.position_size < strategy.position_size[1] and currentTP == 1)
+//     currentTP := 2
+//     currentSL := tp1_percent
+//     posSize := strategy.position_size
+//     strategy.cancel_all()
+//     strategy.exit("Long TP-2", from_entry="Enter Long", limit=entryPrice* (1 + tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
+//     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+//     // if StopTPNum == 1 
+//     //     currentSL := tp1_percent
+// else if (tradeSide == "LONG" and strategy.position_size < strategy.position_size[1] and currentTP == 2)
+//     currentTP := 3
+//     currentSL := tp2_percent
+//     posSize := strategy.position_size
+//     strategy.cancel_all()
+//     strategy.exit("Long TP-3", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100 )
+//     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+//     // if StopTPNum == 2 
+//     //     currentSL := tp2_percent
+// else if (tradeSide == "LONG" and strategy.position_size < strategy.position_size[1] and currentTP == 3)
+//     currentTP := 4    
+//     currentSL := tp3_percent
+//     posSize := strategy.position_size
+//     strategy.cancel_all()
+//     strategy.exit("Long TP-4", from_entry="Enter Long", limit=entryPrice* (1 + tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
+//     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+    
+    // 3
+    // if StopTPNum == 3 
+    //     currentSL := tp3_percent
+// else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp4_percent) and currentTP == 4)
+    // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
+    // strategy.cancel_all()
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL > 0 and tradeSide == "LONG" and close <= (entryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
+    // strategy.cancel_all()
+    // strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop=(entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL == 0 and tradeSide == "LONG" and close <= entryPrice * (1 - sl_percent))
+    // strategy.cancel_all()
+    // strategy.exit("Long SL", from_entry="Enter Long", stop=entryPrice* (1 - sl_percent), qty_percent=100 )
+    // strategy.close("Enter Long", immediately = true)
+    // currentTP := 0
+    // canSignal := true
+
+// Short
+// if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp1_percent) and currentTP == 1)
+//     currentTP := 2
+//     currentSL := tp1_percent
+//     strategy.cancel_all()
+//     strategy.exit("Short TP-2", from_entry="Enter Short", limit=entryPrice* (1 - tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
+//     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+//     // if StopTPNum == 1 
+//     //     currentSL := tp1_percent
+// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp2_percent) and currentTP == 2)
+//     currentTP := 3
+//     currentSL := tp2_percent
+//     strategy.cancel_all()
+//     strategy.exit("Short TP-3", from_entry="Enter Short", limit=entryPrice* (1 - tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100 )
+//     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+//     // if StopTPNum == 2 
+//     //     currentSL := tp2_percent
+// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp3_percent) and currentTP == 3)
+//     currentTP := 4   
+//     currentSL := tp3_percent 
+//     strategy.cancel_all()
+//     strategy.exit("Short TP-4", from_entry="Enter Short", limit=entryPrice* (1 - tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
+//     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
+    // if StopTPNum == 3 
+    //     currentSL := tp3_percent
+// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp4_percent) and currentTP == 4)
+    // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
+    // strategy.cancel_all()
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL > 0 and tradeSide == "SHORT" and close >= (entryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
+    // strategy.cancel_all()
+    // strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop=(entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
+    // currentTP := 0
+    // canSignal := true
+// else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + sl_percent))
+    // strategy.cancel_all()
+    // strategy.exit("Short SL", from_entry="Enter Short", stop=entryPrice* (1 + sl_percent), qty_percent=100 )
+    // strategy.close("Enter Long", immediately = true)
+    // currentTP := 0
+    // canSignal := true
+
+varip float entryPrice = 0
+varip string tradeSide = ""
+varip bool canSignal = true
+varip int trailOffset = 0 
+varip float trailPrice = 0
+varip bool corShiftLong = false
+varip bool corShiftShort = false
+varip bool corShiftWait = false
+varip bool canDraw = false
+
+if strategy.opentrades > 0
+    canSignal := false
+else 
+    strategy.cancel_all()
+    canSignal := true
+
+
+// Corrective shift
+// fib_382 = high_line - channel_range * 0.382
+// fib_5 = high_line - channel_range * 0.5
+// fib_618 = high_line - channel_range * 0.618
+
+varip bool canDrawCor = false
+varip int corStartBar = 0
+
+var bool corBarPassed = false
+corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
+
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
+    corShiftLong := true
+    corShiftWait := false
+    canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= entryPrice* (1 - sl_percent)  and corShiftMode == "Don't move TP/SL"
+    corShiftLong := false
+    corShiftWait := false
+    canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "LONG" and close >= entryPrice * (1+ tp1_percent) 
+    corShiftLong := false
+    corShiftWait := false
+    canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and corBarPassed 
+    corShiftLong := false
+    corShiftWait := false
+    canDrawCor := false
+
+
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? fib_618 : entryPrice * (1+ corShiftSize)) and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
+    corShiftShort := true
+    corShiftWait := false
+    canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= entryPrice* (1+ sl_percent) and corShiftMode == "Don't move TP/SL"
+    corShiftShort := false
+    corShiftWait := false
+    canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close <= entryPrice * (1- tp1_percent) 
+    corShiftShort := false
+    corShiftWait := false
+    canDrawCor := false
+if useCorShift and corShiftWait and tradeSide == "SHORT" and useCorShiftBars and corBarPassed
+    corShiftLong := false
+    corShiftWait := false
+    canDrawCor := false
+
+// plot(canSignal ? 1 : 0)
+// plot(corShiftLong ? 1 : 0)
+// plot(corShiftShort ? 1 : 0)
+
+// Volume calculating
+var bool volAnomaly = false
+
+var bool volVWAPLong = false 
+var bool volVWAPShort = false
+
+// var bool volOBVLong = false
+// var bool volOBVShort = false
+    // Anomaly
+if useVolAnomaly and volAnomalyReverse == false 
+    averageVolume = ta.sma(volume, volAnomalySMALen)
+    volAnomaly := volume < (averageVolume*volAnomalyMult)
+else if useVolAnomaly and volAnomalyReverse
+    averageVolume = ta.sma(volume, volAnomalySMALen)
+    volAnomaly := volume > (averageVolume*volAnomalyMult)
+
+    // OBV
+// if useVolOBV
+//     obvValue = ta.obv
+//     volOBVShort := ta.falling(obvValue, volOBVLen) and ta.rising(close, volOBVLen)
+//     volOBVLong := ta.rising(obvValue, volOBVLen) and ta.falling(close, volOBVLen)
+
+    // VWAP
+if useVolVWAP
+    vwapValue = ta.vwap(close)
+    volVWAPLong := ta.crossover(close, vwapValue)  // Покупка при пробое VWAP снизу вверх
+    volVWAPShort := ta.crossunder(close, vwapValue)  // Продажа при пробое VWAP сверху вниз
+
+// EMA calculationg
+var bool longEMA = false
+var bool shortEMA = false
+
+fastAverage = ta.ema(averageData, fastLength)
+slowAverage = ta.ema(averageData, slowLength)
+longAverage = ta.ema(averageData, longLength)
+
+if use3EMA
+    longEMA := useEMA == false or (close > fastAverage and fastAverage > slowAverage and slowAverage > longAverage)
+    shortEMA := useEMA == false or (close < fastAverage and fastAverage < slowAverage and slowAverage < longAverage)
+else
+    longEMA := useEMA == false or (close > fastAverage and fastAverage > slowAverage)
+    shortEMA := useEMA == false or (close < fastAverage and fastAverage < slowAverage)
+
+plot(useEMA ? fastAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
+plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
+plot(useEMA and use3EMA ? longAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
+
+// RSI
+// "Overbought-buy, oversold-sell","Overbought-sell, oversold-buy"
+varip bool longRSI = true
+varip bool longRSIChange = false
+varip bool shortRSI = true
+varip bool shortRSIChange = false
+varip float currentRSI = na
+
+currentRSI := ta.rsi(close, len)
+currentRSIAddl = useTFRSI ? request.security(syminfo.tickerid, TFRSI, ta.rsi(close, TFRSILen)) : na
+
+if useTFRSI
+    if modeRSI == "Overbought-buy, oversold-sell" and useRSI == true
+        longRSI := (currentRSI > overbought and currentRSIAddl > overbought) or useRSI == false
+        shortRSI := (currentRSI < oversold and currentRSIAddl < oversold) or useRSI == false
+    else if modeRSI == "Overbought-sell, oversold-buy" and useRSI == true
+        if (currentRSI < oversold and currentRSIAddl < oversold) or longRSIChange
+            longRSI := true
+            shortRSI := false
+            longRSIChange := true
+            shortRSIChange := false
+        
+        if (currentRSI >= 50 and currentRSIAddl >= 50)
+            longRSI := false
+            longRSIChange := false
+
+        if (currentRSI > overbought and currentRSIAddl > overbought) or shortRSIChange
+            shortRSI :=  true
+            longRSI := false
+            longRSIChange := false
+            shortRSIChange := true
+        
+        if (currentRSI <= 50 and currentRSIAddl <= 50)
+            shortRSI := false
+            shortRSIChange := false
+else 
+    if modeRSI == "Overbought-buy, oversold-sell" and useRSI == true
+        longRSI := currentRSI > overbought or useRSI == false
+        shortRSI := currentRSI < oversold or useRSI == false
+    else if modeRSI == "Overbought-sell, oversold-buy" and useRSI == true
+        if currentRSI < oversold or longRSIChange
+            longRSI := true
+            shortRSI := false
+            longRSIChange := true
+            shortRSIChange := false
+        
+        if currentRSI >= 50
+            longRSI := false
+            longRSIChange := false
+
+        if currentRSI > overbought or shortRSIChange
+            shortRSI :=  true
+            longRSI := false
+            longRSIChange := false
+            shortRSIChange := true
+        
+        if currentRSI <= 50
+            shortRSI := false
+            shortRSIChange := false
+// plot(longRSI ? 1 : 0)
+// plot(shortRSI ? 1 : 0)
+// plot(currentRSI)
+
+// Max profit and drawdown
+var int rowLossCount = 0
+
+if strategy.losstrades > strategy.losstrades[1]
+    rowLossCount += 1
+
+if strategy.wintrades > strategy.wintrades[1]
+    rowLossCount := 0
+
+if useMaxRowLoss and rowLossCount == maxRowLoss
+    canSignal := false
+    corShiftLong := false
+    corShiftShort := false
+    alert("Max number of loss trades in a row is detected! Please, restart the strategy")    
+
+// plot(canSignal ? 1 : 0)
+// plot(rowLossCount)
+// plot(strategy.losstrades)
+// plot(strategy.losstrades[1])
+
+plotshape(canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and useCorShift ? imba_trend_line : na, title="Long", style=shape.arrowup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and useCorShift ? imba_trend_line : na, title="Short", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
+
+
+// Position mode
+if strDirection == "only long"
+    can_short := false 
+    canShortNew := false
+else if strDirection == "only short"
+    can_long := false
+    canLongNew := false
+
+// Entries
+if (canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPLong)) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
+    tradeSide := "LONG"
+    canDrawCor := false
+    
+    if useCorShift and corShiftLong == false
+        entryPrice := close
+        if corShiftMode == "Don't move TP/SL"
+            canDraw := true
+        corShiftWait := true
+        corShiftShort := false
+        corStartBar := bar_index
+
+    else if corShiftLong or useCorShift == false
+        strategy.close("Enter Short")
+        strategy.entry("Enter Long", strategy.long)
+
+        if useCorShift == false or (useCorShift and corShiftMode == "Move TP/SL")
+            canDraw := true
+            entryPrice := close
+        
+        corShiftLong := false
+        canSignal := false
+     
+        trailOffset := int((close * (trailPercent / 100)) / syminfo.mintick)
+        if trailWithPercent == true
+            trailPrice := entryPrice* (1 + trailStartPercent)
+        else 
+            if trailTP == 0
+                trailPrice := 0
+            else if trailTP == 1
+                trailPrice := entryPrice* (1 + tp1_percent)
+            else if trailTP == 2
+                trailPrice := entryPrice* (1 + tp2_percent)
+            // else if trailTP == 3
+            //     trailPrice := entryPrice* (1 + tp3_percent)
+        // once TP
+        if onceTP 
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+        else 
+            // Проверка на 0 ордера
+            if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
+                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+            else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
+                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")    
+            
+            if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
+                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
+            else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
+                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
+            
+            if tp3_percent_fix != 0 and tp4_percent_fix != 0
+                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
+            else if tp3_percent_fix != 0 and tp4_percent_fix == 0
+                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
+            
+            // if tp4_percent_fix != 0
+            //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
+
+if (canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPShort)) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
+    tradeSide := "SHORT"
+    canDrawCor := false
+    if useCorShift and corShiftShort == false
+        entryPrice := close
+        if corShiftMode == "Don't move TP/SL"
+            canDraw := true
+        corShiftWait := true
+        corShiftLong := false
+        corStartBar := bar_index
+    
+    else if corShiftShort or useCorShift == false
+        strategy.close("Enter Long")
+        strategy.entry("Enter Short", strategy.short)
+
+        if useCorShift == false or (useCorShift and corShiftMode == "Move TP/SL")
+            canDraw := true
+            entryPrice := close
+
+        corShiftShort := false
+        canSignal := false
+        
+        trailOffset := int((close * (trailPercent / 100)) / syminfo.mintick)
+        if trailWithPercent == true
+            trailPrice := entryPrice* (1 - trailStartPercent)
+        else 
+            if trailTP == 0
+                trailPrice := 0
+            else if trailTP == 1
+                trailPrice := entryPrice* (1 - tp1_percent)
+            else if trailTP == 2
+                trailPrice := entryPrice* (1 - tp2_percent)
+            // else if trailTP == 3
+            //     trailPrice := entryPrice* (1 - tp3_percent)
+        
+        if onceTP
+            strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+        else
+            if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
+                strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+            else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
+                strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+            
+            if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
+                strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
+            else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
+                strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
+            
+            if tp3_percent_fix != 0 and tp4_percent_fix != 0
+                strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
+            else if tp3_percent_fix != 0 and tp4_percent_fix == 0
+                strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
+            
+            // if tp4_percent_fix != 0
+            //     strategy.exit("Short TP-4/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-4", comment_loss = "Short: stoploss" )
+
+// Закомментировать
+// plot(canSignal ? 1.0 : 0)
+// plot(can_long ? 1.0 : 0)
+// plot(na(trade) ? 1.0 : 0)
+// plot(entryPrice)
+// plot(math.ceil(trailOffset))
+
+
+// New lines
+var line lineTP1 = na
+var line lineTP2 = na
+var line lineTP3 = na
+var line lineTP4 = na
+var line lineSL = na
+var line lineTrail = na
+var line lineCor = na
+var line lineEntry = na
+var int startBarIndex = na
+var int startBarIndexCor = na
+var float priceTP1 = na
+var float priceTP2 = na
+var float priceTP3 = na
+var float priceTP4 = na
+var float priceSL = na
+var float priceCor = na
+varip bool hitTP1 = na
+varip bool hitTP2 = na
+varip bool hitTP3 = na
+// varip bool hitTP4 = na
+var bool hitSL = na
+varip bool canFill = na
+varip float corEntryPrice = na
+
+// Creating lines
+if corShiftWait and canDrawCor != true and show_tp_enty_sl
+    startBarIndexCor := bar_index
+    corEntryPrice := entryPrice
+    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? fib_382 : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? fib_618 : corEntryPrice * (1+ corShiftSize))
+    lineCor := useCorShift and useCorShiftAuto != true ? line.new(x1=startBarIndex, y1=priceCor, x2=bar_index, y2=priceCor, color=color.yellow, style = line.style_dotted, width = 2) : na
+    canDrawCor := true
+
+if corShiftWait and canDrawCor
+    // Cor
+    line.set_xy1(lineCor, startBarIndexCor, priceCor)
+    line.set_xy2(lineCor, bar_index + 1, priceCor)
+
+
+if canDraw
+    canDraw := false
+    startBarIndex := bar_index
+
+    priceSL  := tradeSide == "LONG" ?  (fixed_stop ? entryPrice* (1 - sl_percent) : fib_786) : (fixed_stop ? entryPrice* (1 + sl_percent) : fib_236)
+    priceTP1 := tradeSide == "LONG" ?  entryPrice* (1 + tp1_percent) : entryPrice* (1 - tp1_percent)
+    priceTP2 := tradeSide == "LONG" ?  entryPrice* (1 + tp2_percent) : entryPrice* (1 - tp2_percent)
+    priceTP3 := tradeSide == "LONG" ?  entryPrice* (1 + tp3_percent) : entryPrice* (1 - tp3_percent)
+    trailPrice := tradeSide == "LONG" ? entryPrice* (1 + trailStartPercent) : entryPrice* (1 - trailStartPercent) 
+    // priceTP4 := tradeSide == "LONG" ?  entryPrice* (1 + tp4_percent) : entryPrice* (1 - tp4_percent)
+
+
+    // Создаем линии 
+    if show_tp_enty_sl
+        lineTrail := trailWithPercent ? line.new(x1=startBarIndex, y1=trailPrice, x2=bar_index, y2=trailPrice, color=color.blue, style = line.style_dotted, width = 2) : na
+        lineSL := line.new(x1=startBarIndex, y1=priceSL, x2=bar_index, y2=priceSL, color=color.red, style = line.style_dotted, width = 2)
+        lineTP1 := line.new(x1=startBarIndex, y1=priceTP1, x2=bar_index, y2=priceTP1, color=color.green, style = line.style_dotted, width = 2)
+        lineEntry  := line.new(x1=startBarIndex, y1=entryPrice, x2=bar_index, y2=entryPrice, color=color.gray, style = line.style_solid, width = 1)
+        if not onceTP
+            lineTP2 := line.new(x1=startBarIndex, y1=priceTP2, x2=bar_index, y2=priceTP2, color=color.green, style = line.style_dotted, width = 2)
+            lineTP3 := line.new(x1=startBarIndex, y1=priceTP3, x2=bar_index, y2=priceTP3, color=color.green, style = line.style_dotted, width = 2)
+            // lineTP4 := line.new(x1=startBarIndex, y1=priceTP4, x2=bar_index, y2=priceTP4, color=color.green, style = line.style_dotted, width = 2)
+
+// Заливка
+if canFill
+    // Рассчет тейков
+    hitTP1 := hitTP1 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp1_percent)) : low <= (entryPrice* (1 - tp1_percent)))
+    hitTP2 := hitTP2 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp2_percent)) : low <= (entryPrice* (1 - tp2_percent)))
+    hitTP3 := hitTP3 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp3_percent)) : low <= (entryPrice* (1 - tp3_percent)))
+    // hitTP4 := hitTP4 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp4_percent)) : low <= (entryPrice* (1 - tp4_percent)))
+    hitSL  := hitSL  ? true : (tradeSide == "LONG" ? low <= (fixed_stop ? entryPrice* (1 - sl_percent) : fib_786) : high >= (fixed_stop ? entryPrice* (1 + sl_percent) : fib_236))
+    
+
+    if fill_positions
+        if hitTP1
+            linefill.new(lineEntry, lineTP1, color = color.new(color.green, 85))
+        if hitTP2
+            linefill.new(lineTP1, lineTP2, color = color.new(color.green, 85))
+        if hitTP3
+            linefill.new(lineTP2, lineTP3, color = color.new(color.green, 85))
+        // if hitTP4
+        //     linefill.new(lineTP3, lineTP4, color = color.new(color.green, 85))
+        if hitSL
+            linefill.new(lineSL, lineEntry, color = color.new(color.red, 85))
+
+    if strategy.opentrades == 0
+        canFill := false
+        hitTP1 := false
+        hitTP2 := false
+        hitTP3 := false
+        // hitTP4 := false
+        hitSL  := false
+
+// Продолжаем рисовать
+if strategy.opentrades > 0 or (corShiftMode == "Don't move TP/SL" and corShiftWait)
+    // Entry
+    line.set_xy1(lineEntry, startBarIndex, entryPrice)
+    line.set_xy2(lineEntry, bar_index + 1, entryPrice)
+    // Trail    
+    line.set_xy1(lineTrail, startBarIndex, trailPrice)
+    line.set_xy2(lineTrail, bar_index + 1, trailPrice)
+    // SL
+    line.set_xy1(lineSL, startBarIndex, priceSL)
+    line.set_xy2(lineSL, bar_index + 1, priceSL)
+    // Cor
+    line.set_xy1(lineCor, startBarIndexCor, priceCor)
+    line.set_xy2(lineCor, bar_index + 1, priceCor)
+    // TP1
+    line.set_xy1(lineTP1, startBarIndex, priceTP1)
+    line.set_xy2(lineTP1, bar_index + 1, priceTP1)
+    // TP2
+    line.set_xy1(lineTP2, startBarIndex, priceTP2)
+    line.set_xy2(lineTP2, bar_index + 1, priceTP2)
+    // TP3
+    line.set_xy1(lineTP3, startBarIndex, priceTP3)
+    line.set_xy2(lineTP3, bar_index + 1, priceTP3)
+    // TP4
+    // line.set_xy1(lineTP4, startBarIndex, priceTP4)
+    // line.set_xy2(lineTP4, bar_index + 1, priceTP4)
+
+    canFill := true
+
+
+
+// can_long or  or can_short
+// if ( (can_long and longRSI and longEMA) or (can_short and shortRSI and shortEMA) ) and na(trade) and canSignal ) or (useCorShift and canDraw)
+if canDraw
+    canDraw := false
+    first_trade_date := trade_count == 0 ? timestamp(year, month, dayofmonth, hour, minute) : first_trade_date
+    trade := Trade.new()
+    // trade.side := can_long ? "LONG" : "SHORT"
+    trade.side := tradeSide
+    trade.entry_price := entryPrice
+    trade.entry_hit := true
+    trade.sl_price := math.round_to_mintick(tradeSide == "LONG" ? fixed_stop ? trade.entry_price * (1 - sl_percent) : fib_786 * (1 - sl_percent) : fixed_stop ? trade.entry_price * (1 + sl_percent) : fib_236 * (1 + sl_percent))
+    trade.tp1_price := math.round_to_mintick(tradeSide == "LONG" ? trade.entry_price * (1 + tp1_percent) : trade.entry_price * (1 - tp1_percent))
+    trade.tp1_percent_fix := tp1_percent_fix * 100
+    trade.tp2_price := math.round_to_mintick(tradeSide == "LONG" ? trade.entry_price * (1 + tp2_percent) : trade.entry_price * (1 - tp2_percent))
+    trade.tp2_percent_fix := tp2_percent_fix * 100
+    trade.tp3_price := math.round_to_mintick(tradeSide == "LONG" ? trade.entry_price * (1 + tp3_percent) : trade.entry_price * (1 - tp3_percent))
+    trade.tp3_percent_fix := tp3_percent_fix * 100
+    trade.tp4_price := math.round_to_mintick(tradeSide == "LONG" ? trade.entry_price * (1 + tp4_percent) : trade.entry_price * (1 - tp4_percent))
+    trade.tp4_percent_fix := tp4_percent_fix * 100
+    trade.break_even_price := switch break_even_target
+        "1" => trade.tp1_price
+        "2" => trade.tp2_price
+        "3" => trade.tp3_price
+        "WITHOUT" => trade.tp4_price
+    trade.risk_percent := risk_percent
+    trade.risk_reward := calc_rr(trade.entry_price, trade.sl_price, trade.tp4_price)
+    trade.start_bar_index := bar_index
+    alert_message = "\n{\n" +  "    \"side\": \"" + str.tostring(trade.side) + "\",\n    \"entry\": \"" + str.tostring(trade.entry_price) + "\",\n    \"tp1\": \"" + str.tostring(trade.tp1_price) + "\",\n    \"tp2\": \"" + str.tostring(trade.tp2_price) + "\",\n    \"tp3\": \"" + str.tostring(trade.tp3_price) + "\",\n    \"tp4\": \"" + str.tostring(trade.tp4_price) + "\",\n    \"winrate\": \"" + str.tostring(RoundUp(profit_trades / trade_count * 100, 2)) + "%" + "\",\n    \"strategy\": \"" + strategy_input + "\",\n    \"beTargetTrigger\": \"" + break_even_target + "\",\n    \"stop\": \"" + str.tostring(trade.sl_price) + "\"\n}\n"
+    alert(alert_message, alert.freq_once_per_bar_close)
+    if show_tp_enty_sl
+        entry_line  := line.new(x1=trade.start_bar_index, y1=trade.entry_price, x2=bar_index, y2=trade.entry_price, color=entry_color, style = line.style_solid, width = 2)
+        entry_label := label.new(bar_index, trade.entry_price, str.tostring(trade.entry_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.gray)
+        sl_line     := line.new(x1=trade.start_bar_index, y1=trade.sl_price, x2=bar_index, y2=trade.sl_price, color=sl_color, style = line_style, width = 2)
+        sl_label := label.new(bar_index, trade.sl_price, str.tostring(trade.sl_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.red)
+        tp1_line    := line.new(x1=trade.start_bar_index, y1=trade.tp1_price, x2=bar_index, y2=trade.tp1_price, color=tp_color, style = line_style, width = 2)
+        tp1_label := label.new(bar_index, trade.tp1_price, str.tostring(trade.tp1_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+        if not onceTP 
+            tp2_line    := line.new(x1=trade.start_bar_index, y1=trade.tp2_price, x2=bar_index, y2=trade.tp2_price, color=tp_color, style = line_style, width = 2)
+            tp2_label := label.new(bar_index, trade.tp2_price, str.tostring(trade.tp2_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+            tp3_line    := line.new(x1=trade.start_bar_index, y1=trade.tp3_price, x2=bar_index, y2=trade.tp3_price, color=tp_color, style = line_style, width = 2)
+            tp3_label := label.new(bar_index, trade.tp3_price, str.tostring(trade.tp3_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+            tp4_line    := line.new(x1=trade.start_bar_index, y1=trade.tp4_price, x2=bar_index, y2=trade.tp4_price, color=tp_color, style = line_style, width = 2)
+            tp4_label := label.new(bar_index, trade.tp4_price, str.tostring(trade.tp4_price), style = label.style_label_left, color = color.rgb(255, 255, 255, 100), textcolor = color.green)
+        // lable_at_signal := label.new(bar_index, is_long_trend ? trade.tp4_price * 1.004 : trade.tp4_price * 0.996, "", style = label.style_label_center, textcolor = color.white)
+    // For long   
+    // if ta.crossunder(trade.break_even_price, lastPrice)
+    //     strategy.close("Enter Long")
+    // For short
+    // if ta.crossover(trade.entry_price, trade.break_even_price)
+    //     strategy.close("Enter Short")
+
+//------------------------------------------------------RSI------------------------------------------------------------\\
+rsi_value = ta.rsi(close, len)
+is_overbought = rsi_value >= overbought
+is_oversold = rsi_value <= oversold
+// plotshape(is_overbought and show_rsi ? high : na, color=color.red, style=shape.cross, size=size.tiny, location=location.abovebar)
+// plotshape(is_oversold and show_rsi ? low : na, color=color.green, style=shape.cross, size=size.tiny, location=location.belowbar)
+
+//-----------------------------------------------------PANELS------------------------------------------------------------\\
+lim = "-------------------------------------------------------"
+high_idk = "╔════════════════════════════╗"
+low_idk = "╚════════════════════════════╝"
+panel_str1 = high_idk + "\n" + "PrimeRaptor v1.3.1-Stable" + "\n" + low_idk
+panel_str13 = "First signal: " + str.format("{0,date,hh:mm} {0,date,long}", first_trade_date) + "\n" + lim
+panel_str14 = "Signal closed: " + str.tostring(trade_count) + "                 " + "Winrate: " + str.tostring(RoundUp(profit_trades / trade_count * 100, 2)) + "%"
+panel_str15 = "Profit signals: " + str.tostring(profit_trades) + "              " + "Loss signals: " + str.tostring(trade_count - profit_trades)
+panel_str16 = "Win streak: " + str.tostring(win_streak) + "                  " + "Loss streak: " + str.tostring(loss_streak) + "\n" + lim
+panel_str17 = "💰 Profit: " + str.tostring(total_profit, "#.##") + "% 💰"
+panel_last = "╚════════════════════════════╝" 
+panel_str_arr = array.from(panel_str1, panel_str13, panel_str14, panel_str15, panel_str16, panel_str17, panel_last)
+if show_old_panel
+    label l = label.new(bar_index + 20, close, text=array.join(panel_str_arr, "\n"), color=color.rgb(0, 0, 0, 87), style=label.style_label_left, textcolor=color.rgb(76, 187, 72),textalign=text.align_center)
+    label.delete(l[1])
+
+var table profit_table = na
+if show_profit_panel
+    profit_table := table.new(position.top_right, 3, 10, border_color = color.green, border_width = 0)
+    table.cell(profit_table, 0, 0, "═════════════════════════════" + "\n" + "PrimeRaptor v1.3.1-Stable" + "\n" + "═════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 5, text_size = size.normal)
+    table.cell(profit_table, 1, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 3, text_size = size.normal)
+    table.merge_cells(profit_table, 0,0,1,0)
+    table.cell(profit_table, 0, 1, "First trade:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 1, str.format("{0,date,long}", first_trade_date), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 8, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 2, "Total trades:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 2, str.tostring(trade_count), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 3, "Profit trades:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 3, str.tostring(profit_trades), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 4, "Loss trades:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 4, str.tostring(loss_trades), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 5, "Winrate:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 5, str.tostring(RoundUp(profit_trades / trade_count * 100, 2)) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 6, "Win streak:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 6, str.tostring(win_streak), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 7, "Loss streak:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 7, str.tostring(loss_streak), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 8, "Deposit: ", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(profit_table, 1, 8, str.tostring(dep, "##.##"), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.cell(profit_table, 0, 9, "═════════════════════════════" + "\n" + "💰 Profit: " + str.tostring(total_profit, "#.##") + "% 💰" + "\n" + "═════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 10, text_size = size.normal, text_halign = text.align_center, text_valign = text.align_top)
+    table.cell(profit_table, 1, 9,"", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 5, height = 3, text_size = size.normal)
+    table.merge_cells(profit_table, 0, 9, 1, 9)
+
+// vklfbar = input(title='Entry bar filter', defval=true, group=POSITION)
+// vklca = input(title='Price smoothing', defval=true, group=POSITION)
+// vklfvol = input(title='Volume comparing', defval=true, group=POSITION)
+
+var table strategy_table = na
+if show_strategy_panel
+    strategy_table := table.new(position.top_right, 5, 25, border_color = color.gray)
+    // table.cell(strategy_table, 1, 0, "PrimeRaptor v1.3.1-Stable: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
+    table.cell(strategy_table, 1, 0, "PrimeRaptor v1.3.1-Stable," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
+    table.cell(strategy_table, 2, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 4, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
+    table.merge_cells(strategy_table, 1,0,4,0)
+    table.cell(strategy_table, 1, 1, "Entry mode:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 1, posMode, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 2, "Length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 2, str.tostring(autoLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 3, "Factor:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 3, str.tostring(vc), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 4, "Entry bar filter:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 4, str.tostring(vklfbar), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 5, "Price smoothing:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 5, str.tostring(vklca), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 6, "Volume comparing:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 6, str.tostring(vklfvol), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 7, "Time:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 7, str.format_time(start_date_input, "yyyy-MM-dd HH:mm"), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 1, 8, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 2, 8, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)  
+    table.cell(strategy_table, 1, 8, "Only 1 TP:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 8, str.tostring(onceTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)  
+    table.cell(strategy_table, 1, 9, "TP-1:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 9, str.tostring(tp1_percent * 100) + "%" + " (" + str.tostring(tp1_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 10, "TP-2:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 10, str.tostring(tp2_percent * 100) + "%" + " (" + str.tostring(tp2_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 11, "TP-3:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 11, str.tostring(tp3_percent * 100) + "%" + " (" + str.tostring(tp3_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 1, 9, "TP-4:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 2, 9, str.tostring(tp4_percent * 100) + "%" + " (" + str.tostring(tp4_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 1, 9, "Fixed stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 2, 9, str.tostring(fixed_stop), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 12, "Stoploss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 12, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 13, "Trailing %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 13, str.tostring(trailPercent) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 14, "TP-num for trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 14, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 15, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 15, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 16, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 16, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 17, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 17, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 18, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 18, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 19, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 19, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)   
+    table.cell(strategy_table, 1, 20, "Auto cor. shift size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 20, str.tostring(useCorShiftAuto), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    
+    table.cell(strategy_table, 3, 1, "Fibo length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 1, str.tostring(sensitivity), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 2, "Use limit of bars:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 2, str.tostring(useCorShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 3, "Amount of bars:", bgcolor  = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 3, str.tostring(corShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 4, 'Use vol."Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 4, str.tostring(useVolAnomaly), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 5, 'Reverse vol. "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 5, str.tostring(volAnomalyReverse), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 6, 'Multiplier for "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 6, str.tostring(volAnomalyMult), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 7, 'SMA length "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 7, str.tostring(volAnomalySMALen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 8, 'Use vol. "VWAP"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 8, str.tostring(useVolVWAP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 9, "Use EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 9, str.tostring(useEMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 10, "Short-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 10, str.tostring(fastLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 11, "Middle-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 11, str.tostring(slowLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 12, "Use long-term EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 12, str.tostring(use3EMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 13, "Long-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 13, str.tostring(longLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 14, "Use RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 14, str.tostring(useRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 15, "Mode for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 15, str.tostring(modeRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.small)
+    table.cell(strategy_table, 3, 16, "RSI-overbought:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 16, str.tostring(overbought), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 17, "RSI-oversold:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 17, str.tostring(oversold), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 18, "RSI-length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 18, str.tostring(len), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 18, "Use additional TF for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 18, str.tostring(useTFRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 19, "Length (bars) for add-l RSI TF:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 19, str.tostring(TFRSILen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 20, "Additional RSI TF (minutes):", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 20, str.tostring(TFRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 19, "Stop on max drawdown:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 19, str.tostring(useMaxDrawdown), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 20, "Max drawdown %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 20, str.tostring(maxDrawdown) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 21, "Stop on max depo loss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 21, str.tostring(useMaxDepoLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 22, "Max depo loss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 22, str.tostring(maxDepoLoss) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 19, "Stop on max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 19, str.tostring(useMaxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 20, "Max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 20, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 18, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 18, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+
+
+
+    // table.cell(strategy_table, 3, 16, "Fill position:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 16, str.tostring(fill_positions), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 1, 16, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 2, 16, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
