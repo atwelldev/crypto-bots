@@ -1458,9 +1458,9 @@ else
     longEMA := useEMA == false or (close > fastAverage and fastAverage > slowAverage)
     shortEMA := useEMA == false or (close < fastAverage and fastAverage < slowAverage)
 
-plot(useEMA ? fastAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
-plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
-plot(useEMA and use3EMA ? longAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
+// plot(useEMA ? fastAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
+// plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
+// plot(useEMA and use3EMA ? longAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
 
 // RSI
 // "Overbought-buy, oversold-sell","Overbought-sell, oversold-buy"
