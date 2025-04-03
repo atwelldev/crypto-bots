@@ -1,6 +1,6 @@
 
 //@version=5
-strategy(title='ChiefDragon v1.3.0-Stable', shorttitle='ChiefDragon v1.3.0-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title='ChiefDragon v1.8.2-Stable', shorttitle='ChiefDragon v1.8.2-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
 import TradingView/Strategy/3
 
 
@@ -1865,7 +1865,7 @@ is_oversold = rsi_value <= oversold
 lim = "-------------------------------------------------------"
 high_idk = "╔════════════════════════════╗"
 low_idk = "╚════════════════════════════╝"
-panel_str1 = high_idk + "\n" + "ChiefDragon v1.3.0-Stable" + "\n" + low_idk
+panel_str1 = high_idk + "\n" + "ChiefDragon v1.8.2-Stable" + "\n" + low_idk
 panel_str13 = "First signal: " + str.format("{0,date,hh:mm} {0,date,long}", first_trade_date) + "\n" + lim
 panel_str14 = "Signal closed: " + str.tostring(trade_count) + "                 " + "Winrate: " + str.tostring(RoundUp(profit_trades / trade_count * 100, 2)) + "%"
 panel_str15 = "Profit signals: " + str.tostring(profit_trades) + "              " + "Loss signals: " + str.tostring(trade_count - profit_trades)
@@ -1880,7 +1880,7 @@ if show_old_panel
 var table profit_table = na
 if show_profit_panel
     profit_table := table.new(position.top_right, 3, 10, border_color = color.green, border_width = 0)
-    table.cell(profit_table, 0, 0, "═════════════════════════════" + "\n" + "ChiefDragon v1.3.0-Stable" + "\n" + "═════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 5, text_size = size.normal)
+    table.cell(profit_table, 0, 0, "═════════════════════════════" + "\n" + "ChiefDragon v1.8.2-Stable" + "\n" + "═════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 5, text_size = size.normal)
     table.cell(profit_table, 1, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 3, text_size = size.normal)
     table.merge_cells(profit_table, 0,0,1,0)
     table.cell(profit_table, 0, 1, "First trade:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
@@ -1911,8 +1911,8 @@ if show_profit_panel
 var table strategy_table = na
 if show_strategy_panel
     strategy_table := table.new(position.top_right, 5, 25, border_color = color.gray)
-    // table.cell(strategy_table, 1, 0, "ChiefDragon v1.3.0-Stable: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
-    table.cell(strategy_table, 1, 0, "ChiefDragon v1.3.0-Stable," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
+    // table.cell(strategy_table, 1, 0, "ChiefDragon v1.8.2-Stable: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
+    table.cell(strategy_table, 1, 0, "ChiefDragon v1.8.2-Stable," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
     table.cell(strategy_table, 2, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
     table.cell(strategy_table, 4, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
