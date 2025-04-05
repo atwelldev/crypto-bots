@@ -1371,10 +1371,11 @@ else
 // fib_618 = high_line - channel_range * 0.618
 
 varip bool canDrawCor = false
-varip int corStartBar = 0
+var int corStartBar = 0
+barIndex = bar_index
 
 var bool corBarPassed = false
-corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
+corBarPassed := corStartBar != 0 and (barIndex - corStartBar >= corShiftBars)
 
 if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
