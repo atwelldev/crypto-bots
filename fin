@@ -1,6 +1,6 @@
 
 //@version=5
-strategy(title='ChiefDragon v1.4.7-Stable', shorttitle='ChiefDragon v1.4.7-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title='ChiefDragon v1.8.2-Stable', shorttitle='ChiefDragon v1.8.2-Stable', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
 import TradingView/Strategy/3
 
 
@@ -351,6 +351,22 @@ riskAmount = input.string("Low", "Risk mode", options = ["Highest", "High", "Nor
 entryMethod = input.string("Classic", "Entry Method", options = ["Classic", "Adaptive"], group = POSITION)
 
 
+// useNewSignal = input.bool(title = "Use new signal", defval = false, group = POSITION)
+useNewSignal = true
+// rr = input.float(2.0, title='Risk Reward', group='NEW SIGNAL')
+// sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
+// vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
+// vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
+// vc = input.float(defval = 2.0, step = 0.05, title='Factor', group = POSITION)
+// vklfbar = input(title='Entry bar filter', defval=true, group=POSITION)
+// vklca = input(title='Price smoothing', defval=true, group=POSITION)
+// vklfvol = input(title='Volume comparing', defval=true, group=POSITION)
+
+// vklfvol = false
+// vklca = true
+// vklfrsi = input(title='Enable RSI filter', defval=true, group='NEW SIGNAL')
+// vklfvol = true
+// vklfbar = true
 
 
 start_date_input = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = POSITION, tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
@@ -365,15 +381,6 @@ risk_percent_input = 1
 break_even_target_input = "1"
 // initial_deposit_input = input.float(title = "Initial deposit", defval = 1000, step = 100, group = POSITION)
 initial_deposit_input = 1000
-
-// ABSORPTION
-useNewSignal = input.bool(title = "Use absorption", defval = true, group = "ABSORPTION")
-
-vc = input.float(defval = 2.0, step = 0.05, title='Factor', group = "ABSORPTION")
-vklfbar = input(title='Entry bar filter', defval=true, group="ABSORPTION")
-vklca = input(title='Price smoothing', defval=true, group="ABSORPTION")
-vklfvol = input(title='Volume comparing', defval=true, group="ABSORPTION")
-
 
 // TAKE PROFITS
 onceTP = input.bool(title="Use only 1 takeprofit (Takeprofit-1)", defval=false, group = TAKE_PROFITS,  tooltip = "en: 1 TP will close the position completely, 'Size (%)' will not affect\n\nru: Первый тейкпрофит закроет позицию полностью, 'Size (%)' не возымеет эффекта")
@@ -422,22 +429,32 @@ useVolVWAP = input.bool(defval = false, title='Use volume filter: "VWAP"', group
 
 
 // EMA
-useEMA = input.bool(defval = false, title = "Use EMA", group = "EMA")
-averageData = input.source(defval = close, title="Average price source", tooltip = "en: Close - current market price. Using another price source is not recommended\n\nru: Close - текущая рыночная цена. Использование других источников цены не рекомендуется", group = "EMA")
-fastLength = input.int(defval = 12, title="Short-term average length", step=1, group = "EMA", minval = 0)
-slowLength = input.int(defval = 60, title="Middle-term average length", step=1, group = "EMA", minval = 0)
-use3EMA = input.bool(defval = false, title = "Use Long-term EMA", group = "EMA")
-longLength = input.int(defval = 140, title="Long-term average length", step=1, group = "EMA", minval = 0)
-
+// useEMA = input.bool(defval = false, title = "Use EMA", group = "EMA")
+useEMA = false
+// averageData = input.source(defval = close, title="Average price source", tooltip = "en: Close - current market price. Using another price source is not recommended\n\nru: Close - текущая рыночная цена. Использование других источников цены не рекомендуется", group = "EMA")
+averageData = close
+// fastLength = input.int(defval = 12, title="Short-term average length", step=1, group = "EMA", minval = 0)
+fastLength = 12
+// slowLength = input.int(defval = 60, title="Middle-term average length", step=1, group = "EMA", minval = 0)
+slowLength = 60
+// use3EMA = input.bool(defval = false, title = "Use Long-term EMA", group = "EMA")
+use3EMA = false
+// longLength = input.int(defval = 140, title="Long-term average length", step=1, group = "EMA", minval = 0)
+longLength = 140
 // RSI
 // show_rsi = input.bool(defval = false, title = "Show", group = rsi_group, inline = "3.1")
 show_rsi = false
 
-useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group)
-modeRSI = input.string(title = "Mode for RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = rsi_group, tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. ! Sensitivity = 0.1-2 is recommended. Using of this RSI-mode with EMA may give you very small number of signals !\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. ! Sensitivity = 0.1-2 рекомендуется. Использование данного RSI-режима вместе с EMA может дать очень маленькое кол-во сигналов !\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
-overbought = input.int(title="Overbought", defval=70, minval = 50, maxval = 100, step = 1, group = rsi_group)
-oversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 50, step = 1,group = rsi_group)
-len = input(title="Length (bars)", defval=14, group = rsi_group)
+// useRSI = input.bool(defval = false, title = "Use RSI", group = rsi_group)
+useRSI = false
+// modeRSI = input.string(title = "Mode for RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = rsi_group, tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. ! Sensitivity = 0.1-2 is recommended. Using of this RSI-mode with EMA may give you very small number of signals !\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. ! Sensitivity = 0.1-2 рекомендуется. Использование данного RSI-режима вместе с EMA может дать очень маленькое кол-во сигналов !\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
+modeRSI = "Overbought-sell, oversold-buy"
+// overbought = input.int(title="Overbought", defval=70, minval = 50, maxval = 100, step = 1, group = rsi_group)
+overbought = 70
+// oversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 50, step = 1,group = rsi_group)
+oversold = 30
+// len = input(title="Length (bars)", defval=14, group = rsi_group)
+len = 14
 // useTFRSI = input.bool(defval = false, title = "Use additional TF for RSI", group = rsi_group)
 useTFRSI = false
 // TFRSILen = input.int(title="Length (bars) for add-l RSI TF", step = 1, defval=14, group = rsi_group)
@@ -925,20 +942,6 @@ if barstate.islastconfirmedhistory
 canShortNew := sellAlertTick
 canLongNew := buyAlertTick
 
-
-// Absorption
-longAbsorp = false
-shortAbsorp = false
-
-if (useNewSignal == false) or (close>open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]<open[1])  and (vklca==false or close>high[1]))
-    longAbsorp := true
-
-shortalert=false
-
-if (useNewSignal == false) or (close<open and high>high[1] and low<low[1] and (vklfvol==false or volume>(volume[1]*vc)) and (vklfbar==false or close[1]>open[1])  and (vklca==false or close<low[1]))
-    shortAbsorp := true
-
-
 // Zero lag
 // --------------------------------------------------------------------------------------------------------------------}
 // 𝙐𝙎𝙀𝙍 𝙄𝙉𝙋𝙐𝙏𝙎
@@ -1368,10 +1371,11 @@ else
 // fib_618 = high_line - channel_range * 0.618
 
 varip bool canDrawCor = false
-varip int corStartBar = 0
+var int corStartBar = 0
+barIndex = bar_index
 
 var bool corBarPassed = false
-corBarPassed := corStartBar != 0 and (bar_index - corStartBar >= corShiftBars)
+corBarPassed := corStartBar != 0 and (barIndex - corStartBar >= corShiftBars)
 
 if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
@@ -1455,9 +1459,9 @@ else
     longEMA := useEMA == false or (close > fastAverage and fastAverage > slowAverage)
     shortEMA := useEMA == false or (close < fastAverage and fastAverage < slowAverage)
 
-plot(useEMA ? fastAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
-plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
-plot(useEMA and use3EMA ? longAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
+// plot(useEMA ? fastAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
+// plot(useEMA ? slowAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
+// plot(useEMA and use3EMA ? longAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
 
 // RSI
 // "Overbought-buy, oversold-sell","Overbought-sell, oversold-buy"
@@ -1542,8 +1546,8 @@ if useMaxRowLoss and rowLossCount == maxRowLoss
 // plot(strategy.losstrades)
 // plot(strategy.losstrades[1])
 
-plotshape(canLongNew and na(trade) and canSignal and strDirection != "only short" and longAbsorp and longRSI and longEMA and useCorShift ? imba_trend_line : na, title="Long", style=shape.arrowup, location=location.belowbar, color=color.green, size=size.small)
-plotshape(canShortNew and na(trade) and canSignal and strDirection != "only long" and shortAbsorp and shortRSI and shortEMA and useCorShift ? imba_trend_line : na, title="Short", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
+plotshape(canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and useCorShift ? imba_trend_line : na, title="Long", style=shape.arrowup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and useCorShift ? imba_trend_line : na, title="Short", style=shape.arrowdown, location=location.abovebar, color=color.red, size=size.small)
 
 
 // Position mode
@@ -1555,7 +1559,7 @@ else if strDirection == "only short"
     canLongNew := false
 
 // Entries
-if (canLongNew and na(trade) and canSignal and strDirection != "only short" and longAbsorp and longRSI and longEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPLong)) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
+if (canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPLong)) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
     tradeSide := "LONG"
     canDrawCor := false
     
@@ -1613,7 +1617,7 @@ if (canLongNew and na(trade) and canSignal and strDirection != "only short" and 
             // if tp4_percent_fix != 0
             //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
-if (canShortNew and na(trade) and canSignal and strDirection != "only long" and shortAbsorp and shortRSI and shortEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPShort)) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
+if (canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPShort)) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
     tradeSide := "SHORT"
     canDrawCor := false
     if useCorShift and corShiftShort == false
@@ -1862,7 +1866,7 @@ is_oversold = rsi_value <= oversold
 lim = "-------------------------------------------------------"
 high_idk = "╔════════════════════════════╗"
 low_idk = "╚════════════════════════════╝"
-panel_str1 = high_idk + "\n" + "ChiefDragon v1.4.7-Stable" + "\n" + low_idk
+panel_str1 = high_idk + "\n" + "ChiefDragon v1.8.2-Stable" + "\n" + low_idk
 panel_str13 = "First signal: " + str.format("{0,date,hh:mm} {0,date,long}", first_trade_date) + "\n" + lim
 panel_str14 = "Signal closed: " + str.tostring(trade_count) + "                 " + "Winrate: " + str.tostring(RoundUp(profit_trades / trade_count * 100, 2)) + "%"
 panel_str15 = "Profit signals: " + str.tostring(profit_trades) + "              " + "Loss signals: " + str.tostring(trade_count - profit_trades)
@@ -1877,7 +1881,7 @@ if show_old_panel
 var table profit_table = na
 if show_profit_panel
     profit_table := table.new(position.top_right, 3, 10, border_color = color.green, border_width = 0)
-    table.cell(profit_table, 0, 0, "═════════════════════════════" + "\n" + "ChiefDragon v1.4.7-Stable" + "\n" + "═════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 5, text_size = size.normal)
+    table.cell(profit_table, 0, 0, "═════════════════════════════" + "\n" + "ChiefDragon v1.8.2-Stable" + "\n" + "═════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 5, text_size = size.normal)
     table.cell(profit_table, 1, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 6, height = 3, text_size = size.normal)
     table.merge_cells(profit_table, 0,0,1,0)
     table.cell(profit_table, 0, 1, "First trade:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.green, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
@@ -1908,8 +1912,8 @@ if show_profit_panel
 var table strategy_table = na
 if show_strategy_panel
     strategy_table := table.new(position.top_right, 5, 25, border_color = color.gray)
-    // table.cell(strategy_table, 1, 0, "ChiefDragon v1.4.7-Stable: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
-    table.cell(strategy_table, 1, 0, "ChiefDragon v1.4.7-Stable," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
+    // table.cell(strategy_table, 1, 0, "ChiefDragon v1.8.2-Stable: " + syminfo.ticker + " " + timeframe.period + " | WR: " + str.tostring(profit_trades / (profit_trades + (trade_count - profit_trades)) * 100, "##,##") + "%" + " | TT: " + str.tostring(trade_count) + " | P: " +  str.tostring(total_profit, "#.##") + "%" + "\n" + "══════════════════════════════════════════", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.white, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
+    table.cell(strategy_table, 1, 0, "ChiefDragon v1.8.2-Stable," + " ticker: " + syminfo.ticker + ", timeframe: " + timeframe.period, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 7, text_size = size.normal, text_valign = text.align_bottom)
     table.cell(strategy_table, 2, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
     table.cell(strategy_table, 4, 0, "", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
@@ -1950,55 +1954,55 @@ if show_strategy_panel
     table.cell(strategy_table, 2, 15, str.tostring(trailPercent) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 16, "TP-num for trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 16, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 17, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 17, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 18, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 18, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 19, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 19, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 20, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 20, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 21, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 21, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)   
     
-    table.cell(strategy_table, 3, 1, "Auto cor. shift size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 1, str.tostring(useCorShiftAuto), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 2, "Fibo length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 2, str.tostring(sensitivity), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 3, "Use limit of bars:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 3, str.tostring(useCorShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
-    table.cell(strategy_table, 3, 4, "Amount of bars:", bgcolor  = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 4, str.tostring(corShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 5, 'Use vol."Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 5, str.tostring(useVolAnomaly), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
-    table.cell(strategy_table, 3, 6, 'Reverse vol. "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 6, str.tostring(volAnomalyReverse), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 7, 'Multiplier for "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 7, str.tostring(volAnomalyMult), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 8, 'SMA length "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 8, str.tostring(volAnomalySMALen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 9, 'Use vol. "VWAP"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 9, str.tostring(useVolVWAP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
-    table.cell(strategy_table, 3, 10, "Use EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 10, str.tostring(useEMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 11, "Short-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 11, str.tostring(fastLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 12, "Middle-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 12, str.tostring(slowLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 13, "Use long-term EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 13, str.tostring(use3EMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 14, "Long-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 14, str.tostring(longLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 15, "Use RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 15, str.tostring(useRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 16, "Mode for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 16, str.tostring(modeRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.small)
-    table.cell(strategy_table, 3, 17, "RSI-overbought:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 17, str.tostring(overbought), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 18, "RSI-oversold:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 18, str.tostring(oversold), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 19, "RSI-length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 19, str.tostring(len), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 1, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 1, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 2, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 2, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 3, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 3, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 4, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 4, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 5, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 5, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)   
+    table.cell(strategy_table, 3, 6, "Auto cor. shift size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 6, str.tostring(useCorShiftAuto), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 7, "Fibo length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 7, str.tostring(sensitivity), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 8, "Use limit of bars:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 8, str.tostring(useCorShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 9, "Amount of bars:", bgcolor  = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 9, str.tostring(corShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 10, 'Use vol."Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 10, str.tostring(useVolAnomaly), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 11, 'Reverse vol. "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 11, str.tostring(volAnomalyReverse), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 12, 'Multiplier for "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 12, str.tostring(volAnomalyMult), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 13, 'SMA length "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 13, str.tostring(volAnomalySMALen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 14, 'Use vol. "VWAP"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 14, str.tostring(useVolVWAP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    // table.cell(strategy_table, 3, 10, "Use EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 10, str.tostring(useEMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 11, "Short-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 11, str.tostring(fastLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 12, "Middle-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 12, str.tostring(slowLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 13, "Use long-term EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 13, str.tostring(use3EMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 14, "Long-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 14, str.tostring(longLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 15, "Use RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 15, str.tostring(useRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 16, "Mode for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 16, str.tostring(modeRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.small)
+    // table.cell(strategy_table, 3, 17, "RSI-overbought:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 17, str.tostring(overbought), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 18, "RSI-oversold:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 18, str.tostring(oversold), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 3, 19, "RSI-length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 4, 19, str.tostring(len), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 18, "Use additional TF for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 4, 18, str.tostring(useTFRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 19, "Length (bars) for add-l RSI TF:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
@@ -2013,10 +2017,10 @@ if show_strategy_panel
     // table.cell(strategy_table, 4, 21, str.tostring(useMaxDepoLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 22, "Max depo loss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 4, 22, str.tostring(maxDepoLoss) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 20, "Stop on max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 20, str.tostring(useMaxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 21, "Max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 21, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 15, "Stop on max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 15, str.tostring(useMaxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 16, "Max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 16, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 3, 18, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 4, 18, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 
