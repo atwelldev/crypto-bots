@@ -348,12 +348,13 @@ higherTimeframe = input.timeframe("60", "Higher TF", group = POSITION)
 mssOffset = input.int(10, "Market structure shift length", group = POSITION)
 // breakoutMethod = input.string("Wick", "Intersection method", options = ["Close", "Wick"], group = POSITION)
 breakoutMethod = "Wick"
-riskAmount = input.string("Intraday", "Trading mode", options = ["Swing", "Intraday", "Scalping"], group = POSITION)
-if riskAmount == "Swing"
+riskAmountStart = input.string("Intraday", "Trading mode", options = ["Swing", "Intraday", "Scalping"], group = POSITION)
+riskAmount = "Normal"
+if riskAmountStart == "Swing"
     riskAmount := "Normal"
-else if riskAmount == "Intraday"
+else if riskAmountStart == "Intraday"
     riskAmount := "Low"
-else if riskAmount == "Scalping"
+else if riskAmountStart == "Scalping"
     riskAmount := "Lowest"
 
 
@@ -1938,7 +1939,7 @@ if show_strategy_panel
     // table.cell(strategy_table, 1, 5, "Intersection method:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 2, 5, str.tostring(breakoutMethod), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 5, "Trading mode:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 5, str.tostring(riskAmount), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 2, 5, str.tostring(riskAmountStart), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 1, 7, "Entry Method:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 2, 7, str.tostring(entryMethod), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 6, "Time:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
