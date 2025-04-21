@@ -10,8 +10,8 @@ calcDate = input.time(defval = timestamp("12 June 2024"), title = "Calculating d
 // GENERAL FILTERS
     // adx
 adxLength = input.int(defval = 14, step = 1, title='ADX length (bars)', group = "GENERAL FILTERS")
-    // atr
-atrLength = input.int(defval = 14, step = 1, title='ATR length (bars)', group = "GENERAL FILTERS")
+// adxDILength = input.int(defval = 14, step = 1, title='ADX DI length (bars)', group = "GENERAL FILTERS")
+adxThreshold = input.int(defval = 25, step = 1, title='ADX Strong Trend Threshold', group = "GENERAL FILTERS")
     // cumulative delta
 deltaActive = input.bool(defval = false, title='Use cumulative delta --------------------------->', group = "GENERAL FILTERS")
 deltaLength = input.int(defval = 100, step = 1, title='Cumulative delta length (bars)', group = "GENERAL FILTERS")
@@ -54,8 +54,8 @@ stochOverbought = input.int(title="Stochastic overbought", defval=80, minval = 1
 stochOversold = input.int(title="Stochastic oversold", defval=20, minval = 1, step = 1,group = "FLAT FILTERS")
     // Bolinger
 bollingerActive = input.bool(defval = false, title = "Use Bollinger ---------------------------------->", group = "FLAT FILTERS") 
-BollingerLength = input.int(title="SMA length (bars)", defval=20, minval = 0, step = 1, group = "FLAT FILTERS")
-BollingerMult = input.float(title="Standard Deviation Multiplier", defval=2.0, minval = 0, step = 0.1, group = "FLAT FILTERS")
+bollingerLength = input.int(title="SMA length (bars)", defval=20, minval = 0, step = 1, group = "FLAT FILTERS")
+bollingerMult = input.float(title="Standard Deviation Multiplier", defval=2.0, minval = 0, step = 0.1, group = "FLAT FILTERS")
     // RSI
 rsiFlatActive = input.bool(defval = false, title = "Use Flat-RSI ---------------------------------->", group = "FLAT FILTERS")
 rsiFlatOverbought = input.int(title="Overbought", defval=70, minval = 0, maxval = 100, step = 1, group = "FLAT FILTERS")
@@ -75,8 +75,10 @@ tp4QTY = input.float(title = "TP-4 size (%)", step = 5, defval=10, group = "TP/S
 trailBreak = input.float(title="Trail price (%)", step = 0.05, defval=0.5, minval = 0.00001, group = "TP/SL/Trail", inline = "2.6") / 100
 trailSize = input.float(title="Trail size (%)", step = 0.05, defval = 0.1, group = "TP/SL/Trail", inline = "2.6") / 100
 slBreak = input.float(title="Stoploss price (%)", step = 0.1, defval=0.3, group = "TP/SL/Trail") / 100
-atrAutoActive = input.bool(title = "Use auto TP/SL/Trail by ATR", group = "TP/SL/Trail", defval = false)
-atrAutoMult = input.float(title = "Multiplier for auto TP/SL/Trail", group = "TP/SL/Trail", defval = 2.0)
+atrAutoActive = input.bool(title = "Use auto TP/SL by ATR", group = "TP/SL/Trail", defval = false)
+atrLength = input.int(defval = 14, step = 1, title='ATR length (bars)', group = "TP/SL/Trail")
+atrMultTP = input.float(defval = 2.0, step = 0.1, title='Multiplier for TP', group = "TP/SL/Trail")
+atrMultSL = input.float(defval = 1.0, step = 0.1, title='Multiplier for SL', group = "TP/SL/Trail")
 
 // RISK CONTROL
 maxLossTradesActive = input.bool(defval = false, title = "Stop on max loss trades in a row", group = "RISK CONTROL", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
@@ -89,6 +91,11 @@ linesPosActive = input.bool(defval = true, title = "Show position lines", group 
 // Variables
     // position
 var bool signalActive = true
+var bool signalTrendShort = false
+var bool signalTrendLong = false
+var bool signalFlatShort = false
+var bool signalFlatLong = false
+var string marketState = ""
 var string tradeSide = ""
 var float tradeEntryPrice = 0
 var float tradeTP1Limit = 0
@@ -107,16 +114,39 @@ var float volAnomalyAverage = 0
 var float volVWAPValue = 0 
 var bool volVWAPSignalLong = false 
 var bool volVWAPSignalShort = false
+var float volProfilePOC = 0 
+var bool volProfileSignalLong = false 
+var bool volProfileSignalShort = false
+    // delta
+var bool deltaSignalLong = false
+var bool deltaSignalShort = false
+    // MACD
+var bool macdSignalLong = false
+var bool macdSignalShort = false
+    // ATR
+var float atrVal = 0
     // EMA
 var float emaShortAverage = 0
 var float emaMiddleAverage = 0
 var float emaLongAverage = 0
 var bool emaSignalLong = false
 var bool emaSignalShort = false
+    // Stochastic
+var bool stochSignalLong = false
+var bool stochSignalShort = false
+    // Bollinger
+var bool bollingerSignalLong = false
+var bool bollingerSignalShort = false
+var float bolingerBasis = 0
+var float bollingerUpper = 0
+var float bollingerLower = 0
     // RSI
-var float rsiCurrent = 0
-var bool rsiSignalLong = false
-var bool rsiSignalShort = false
+var float rsiTrendCurrent = 0
+var bool rsiTrendSignalLong = false
+var bool rsiTrendSignalShort = false
+var float rsiFlatCurrent = 0
+var bool rsiFlatSignalLong = false
+var bool rsiFlatSignalShort = false
     // risk control
 var int maxLossTradesCount = 0
     // drawing
@@ -145,11 +175,25 @@ var table panelStratTable = na
 
 // GENERAL FILTERS
 // ATR
+if atrAutoActive
+    atrVal := ta.atr(atrLength)
 
 // ADX
+[diPlus, diMinus, adxVal] = ta.dmi(adxLength, adxLength)
+if adxVal >= adxThreshold
+    marketState := "trend" 
+else 
+    marketState := "flat"
+plot(marketState == "trend" ? 999 : 111)
 
 // Delta
-
+if deltaActive
+    delta = close > open ? volume : close < open ? -volume : 0
+    deltaSignalLong := delta > 0 ? true : false
+    deltaSignalShort := delta < 0 ? true : false
+else if deltaActive == false
+    deltaSignalLong := true
+    deltaSignalShort := true
 // Volumes
     // anomaly
 if volAnomalyActive
@@ -161,7 +205,6 @@ if volAnomalyActive
         volAnomalySignal := volume > (volAnomalyAverage*volAnomalyMult)
 else if volAnomalyActive == false
     volAnomalySignal := true
-
     // VWAP
 if volVWAPActive
     volVWAPValue := ta.vwap(close)
@@ -170,45 +213,107 @@ if volVWAPActive
 else if volVWAPActive == false
     volVWAPSignalLong := true
     volVWAPSignalShort := true
+    // VP POC
+if volProfileActive
+    volProfilePOC := ta.valuewhen(volume == ta.highest(volume, volProfileLength), close, 0)
+    volProfileSMA = ta.sma(volume, volProfileLength)
+    volProfileSignalLong := (close > volProfilePOC) and (volume > volProfileSMA)
+    volProfileSignalShort := (close < volProfilePOC) and (volume > volProfileSMA)
+else if volProfileActive == false
+    volProfileSignalLong := true
+    volProfileSignalShort := true
+
 
 // TREND FILTERS
-// MACD
-// EMA
-if emaActive
-    emaShortAverage := ta.ema(emaData, emaShortTerm)
-    emaMiddleAverage := ta.ema(emaData, emaMiddleTerm)
-    emaLongAverage := ta.ema(emaData, emaLongTerm)
-    if emaUseLongTerm
-        emaSignalLong := close > emaShortAverage and emaShortAverage > emaMiddleAverage and emaMiddleAverage > emaLongAverage
-        emaSignalShort := close < emaShortAverage and emaShortAverage < emaMiddleAverage and emaMiddleAverage < emaLongAverage
-    else
-        emaSignalLong := close > emaShortAverage and emaShortAverage > emaMiddleAverage
-        emaSignalShort := close < emaShortAverage and emaShortAverage < emaMiddleAverage
-else if emaActive == false
-    emaSignalLong := true
-    emaSignalShort := true
-
-plot(emaActive ? emaShortAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
-plot(emaActive ? emaMiddleAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
-plot(emaActive and emaUseLongTerm ? emaLongAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
+if tradingMode != "flat" and marketState == "trend"
+    // MACD
+    if macdActive
+        [macdLine, macdSignalLine, _] = ta.macd(close, macdFastLength, macdSlowLength, macdSignalLength)
+        macdSignalLong := ta.crossover(macdLine, macdSignalLine) and macdLine > 0
+        macdSignalShort := ta.crossunder(macdLine, macdSignalLine) and macdLine < 0
+    else if macdActive == false
+        macdSignalLong := true
+        macdSignalShort := true
+    // EMA
+    if emaActive
+        emaShortAverage := ta.ema(emaData, emaShortTerm)
+        emaMiddleAverage := ta.ema(emaData, emaMiddleTerm)
+        emaLongAverage := ta.ema(emaData, emaLongTerm)
+        if emaUseLongTerm
+            emaSignalLong := close > emaShortAverage and emaShortAverage > emaMiddleAverage and emaMiddleAverage > emaLongAverage
+            emaSignalShort := close < emaShortAverage and emaShortAverage < emaMiddleAverage and emaMiddleAverage < emaLongAverage
+        else
+            emaSignalLong := close > emaShortAverage and emaShortAverage > emaMiddleAverage
+            emaSignalShort := close < emaShortAverage and emaShortAverage < emaMiddleAverage
+    else if emaActive == false
+        emaSignalLong := true
+        emaSignalShort := true
 
     // RSI
-if rsiTrendActive    
-    rsiCurrent := ta.rsi(close, rsiTrendLength)
-    if rsiTrendMode == "Overbought-buy, oversold-sell"
-        rsiSignalLong := rsiCurrent >= rsiTrendOverbought
-        rsiSignalShort := rsiCurrent <= rsiTrendOversold
-    else if rsiTrendMode == "Overbought-sell, oversold-buy"
-        rsiSignalLong := rsiCurrent <= rsiTrendOversold
-        rsiSignalShort := rsiCurrent >= rsiTrendOverbought 
-else if rsiTrendActive == false
-    rsiSignalLong := true
-    rsiSignalShort := true
+    if rsiTrendActive    
+        rsiTrendCurrent := ta.rsi(close, rsiTrendLength)
+        if rsiTrendMode == "Overbought-buy, oversold-sell"
+            rsiTrendSignalLong := rsiTrendCurrent >= rsiTrendOverbought
+            rsiTrendSignalShort := rsiTrendCurrent <= rsiTrendOversold
+        else if rsiTrendMode == "Overbought-sell, oversold-buy"
+            rsiTrendSignalLong := rsiTrendCurrent <= rsiTrendOversold
+            rsiTrendSignalShort := rsiTrendCurrent >= rsiTrendOverbought 
+    else if rsiTrendActive == false
+        rsiTrendSignalLong := true
+        rsiTrendSignalShort := true
+
+    signalTrendLong := emaSignalLong and rsiTrendSignalLong and macdSignalLong
+    signalTrendShort := emaSignalShort and rsiTrendSignalShort and macdSignalShort
+else if tradingMode == "flat" or marketState == "flat"
+    signalTrendShort := true
+    signalTrendLong := true
+
+plot((emaActive and tradingMode != "flat") ? emaShortAverage : na, color = color.blue, linewidth = 1, title = "Short-term average")
+plot((emaActive and tradingMode != "flat") ? emaMiddleAverage : na, color = color.purple, linewidth = 1, title = "Middle-term average")
+plot((emaActive and emaUseLongTerm and tradingMode != "flat") ? emaLongAverage : na, color = color.maroon, linewidth = 1, title = "Long-term average")
+
 
 // FLAT FILTERS
-    // bolinger
+if tradingMode != "trend" and marketState == "flat"
+    // Stochastic
+    if stochActive
+        k = ta.sma(ta.stoch(close, high, low, stochLength), stochSmoothK)
+        d = ta.sma(k, stochSmoothD)
+        stochSignalLong := ta.crossover(k, d) and k < stochOversold
+        stochSignalShort := ta.crossunder(k, d) and k >stochOverbought
+    else if stochActive == false
+        stochSignalLong := true
+        stochSignalShort := true
+
+    // Bolinger
+    if bollingerActive
+        bolingerBasis := ta.sma(close, bollingerLength)
+        bollingerUpper := bolingerBasis + ta.stdev(close, bollingerLength) * bollingerMult
+        bollingerLower := bolingerBasis - ta.stdev(close, bollingerLength) * bollingerMult
+        bollingerSignalLong := close <= bollingerLower and close > close[1]
+        bollingerSignalShort := close >= bollingerUpper and close < close[1]
+    else if bollingerActive == false
+        bollingerSignalLong := true
+        bollingerSignalShort := true
+
     // RSI
-    // stochastic
+    if rsiFlatActive    
+        rsiFlatCurrent := ta.rsi(close, rsiFlatLength)
+        rsiFlatSignalLong := rsiFlatCurrent <= rsiFlatOversold
+        rsiFlatSignalShort := rsiFlatCurrent >= rsiFlatOverbought 
+    else if rsiFlatActive == false
+        rsiFlatSignalLong := true
+        rsiFlatSignalShort := true
+
+    signalFlatShort := bollingerSignalShort and rsiFlatSignalShort and stochSignalShort 
+    signalFlatLong := bollingerSignalLong and rsiFlatSignalLong and stochSignalLong
+else if tradingMode == "flat" or marketState == "flat"
+    signalFlatShort := true
+    signalFlatLong := true
+
+plot((bollingerActive and tradingMode != "trend") ? bolingerBasis : na, "Bollinger-middle", color=color.rgb(107, 162, 207))
+plot((bollingerActive and tradingMode != "trend") ? bollingerUpper : na, "Bollinger-upper", color=color.rgb(11, 119, 207))
+plot((bollingerActive and tradingMode != "trend") ? bollingerLower : na, "Bollinger-lower", color=color.rgb(11, 119, 207))
 
 // Open trades
 if strategy.opentrades > 0
@@ -260,22 +365,22 @@ if fillActive
 
 // Entries
     // long
-if signalActive and signalMode != "only short" and rsiSignalLong and emaSignalLong and volVWAPSignalLong and volAnomalySignal
+if signalActive and signalMode != "only short" and signalTrendLong and signalFlatShort and volAnomalySignal and volVWAPSignalLong and volProfileSignalLong and deltaSignalLong
     strategy.close("Enter Short")
     strategy.entry("Enter Long", strategy.long)
     signalActive := false
     drawActive := true    
     tradeSide := "LONG"    
     tradeEntryPrice := close
-    tradeTP1Limit := tradeEntryPrice* (1 + tp1Break)
+    tradeTP1Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP) : tradeEntryPrice* (1 + tp1Break)
     tradeTP1Size := tp1QTY * 100
-    tradeTP2Limit := tradeEntryPrice* (1 + tp2Break)
+    tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2Break)
     tradeTP2Size := tp2QTY * 100
-    tradeTP3Limit := tradeEntryPrice* (1 + tp3Break)
+    tradeTP3Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 + tp3Break)
     tradeTP3Size := tp3QTY * 100
-    tradeTP4Limit := tradeEntryPrice* (1 + tp4Break)
+    tradeTP4Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 4) : tradeEntryPrice* (1 + tp4Break)
     tradeTP4Size := tp4QTY * 100
-    tradeSL := tradeEntryPrice* (1 - slBreak)
+    tradeSL := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultSL) : tradeEntryPrice* (1 - slBreak)
     tradeTrailOffset = int((close * trailBreak) / syminfo.mintick)
     tradeTrailPrice := tradeEntryPrice* (1 + trailBreak)
     // once TP
@@ -302,22 +407,22 @@ if signalActive and signalMode != "only short" and rsiSignalLong and emaSignalLo
             strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP4Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss")
 
     // short
-if signalActive and signalMode != "only long" and rsiSignalShort and emaSignalShort and volVWAPSignalShort and volAnomalySignal
+if signalActive and signalMode != "only long" and signalTrendShort and signalFlatShort and volAnomalySignal and volVWAPSignalShort and volProfileSignalShort and deltaSignalShort
     strategy.close("Enter Long")
     strategy.entry("Enter Short", strategy.short)
     signalActive := false    
     drawActive := true
     tradeSide := "SHORT"    
     tradeEntryPrice := close
-    tradeTP1Limit := tradeEntryPrice* (1 - tp1Break)
+    tradeTP1Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP) : tradeEntryPrice* (1 - tp1Break)
     tradeTP1Size := tp1QTY * 100
-    tradeTP2Limit := tradeEntryPrice* (1 - tp2Break)
+    tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2Break)
     tradeTP2Size := tp2QTY * 100
-    tradeTP3Limit := tradeEntryPrice* (1 - tp3Break)
+    tradeTP3Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 - tp3Break)
     tradeTP3Size := tp3QTY * 100
-    tradeTP4Limit := tradeEntryPrice* (1 - tp4Break)
+    tradeTP4Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 4) : tradeEntryPrice* (1 - tp4Break)
     tradeTP4Size := tp4QTY * 100
-    tradeSL := tradeEntryPrice* (1 + slBreak)
+    tradeSL := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultSL) : tradeEntryPrice* (1 + slBreak)
     tradeTrailOffset = int((close * trailBreak) / syminfo.mintick)
     tradeTrailPrice := tradeEntryPrice* (1 - trailBreak)
     // once TP
