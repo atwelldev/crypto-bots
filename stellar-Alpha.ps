@@ -224,7 +224,11 @@ else if volProfileActive == false
     volProfileSignalShort := true
 
 
+
 // TREND FILTERS
+emaShortAverage := ta.ema(emaData, emaShortTerm)
+emaMiddleAverage := ta.ema(emaData, emaMiddleTerm)
+emaLongAverage := ta.ema(emaData, emaLongTerm)
 if tradingMode != "flat" and marketState == "trend"
     // MACD
     if macdActive
@@ -236,9 +240,6 @@ if tradingMode != "flat" and marketState == "trend"
         macdSignalShort := true
     // EMA
     if emaActive
-        emaShortAverage := ta.ema(emaData, emaShortTerm)
-        emaMiddleAverage := ta.ema(emaData, emaMiddleTerm)
-        emaLongAverage := ta.ema(emaData, emaLongTerm)
         if emaUseLongTerm
             emaSignalLong := close > emaShortAverage and emaShortAverage > emaMiddleAverage and emaMiddleAverage > emaLongAverage
             emaSignalShort := close < emaShortAverage and emaShortAverage < emaMiddleAverage and emaMiddleAverage < emaLongAverage
@@ -307,7 +308,7 @@ if tradingMode != "trend" and marketState == "flat"
 
     signalFlatShort := bollingerSignalShort and rsiFlatSignalShort and stochSignalShort 
     signalFlatLong := bollingerSignalLong and rsiFlatSignalLong and stochSignalLong
-else if tradingMode == "flat" or marketState == "flat"
+else if tradingMode == "trend" or marketState == "trend"
     signalFlatShort := true
     signalFlatLong := true
 
@@ -365,7 +366,7 @@ if fillActive
 
 // Entries
     // long
-if signalActive and signalMode != "only short" and signalTrendLong and signalFlatShort and volAnomalySignal and volVWAPSignalLong and volProfileSignalLong and deltaSignalLong
+if signalActive and signalMode != "only short" and ((signalTrendLong and marketState == "trend" and tradingMode != "flat") or (signalFlatLong and marketState == "flat"  and tradingMode != "trend")) and volAnomalySignal and volVWAPSignalLong and volProfileSignalLong and deltaSignalLong
     strategy.close("Enter Short")
     strategy.entry("Enter Long", strategy.long)
     signalActive := false
@@ -407,7 +408,7 @@ if signalActive and signalMode != "only short" and signalTrendLong and signalFla
             strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP4Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss")
 
     // short
-if signalActive and signalMode != "only long" and signalTrendShort and signalFlatShort and volAnomalySignal and volVWAPSignalShort and volProfileSignalShort and deltaSignalShort
+if signalActive and signalMode != "only long" and ((signalTrendShort and marketState == "trend" and tradingMode != "flat") or (signalFlatShort and marketState == "flat" and tradingMode != "trend")) and volAnomalySignal and volVWAPSignalShort and volProfileSignalShort and deltaSignalShort
     strategy.close("Enter Long")
     strategy.entry("Enter Short", strategy.short)
     signalActive := false    
