@@ -275,6 +275,9 @@ plot((emaActive and emaUseLongTerm and tradingMode != "flat") ? emaLongAverage :
 
 
 // FLAT FILTERS
+bolingerBasis := ta.sma(close, bollingerLength)
+bollingerUpper := bolingerBasis + ta.stdev(close, bollingerLength) * bollingerMult
+bollingerLower := bolingerBasis - ta.stdev(close, bollingerLength) * bollingerMult
 if tradingMode != "trend" and marketState == "flat"
     // Stochastic
     if stochActive
@@ -288,9 +291,6 @@ if tradingMode != "trend" and marketState == "flat"
 
     // Bolinger
     if bollingerActive
-        bolingerBasis := ta.sma(close, bollingerLength)
-        bollingerUpper := bolingerBasis + ta.stdev(close, bollingerLength) * bollingerMult
-        bollingerLower := bolingerBasis - ta.stdev(close, bollingerLength) * bollingerMult
         bollingerSignalLong := close <= bollingerLower and close > close[1]
         bollingerSignalShort := close >= bollingerUpper and close < close[1]
     else if bollingerActive == false
