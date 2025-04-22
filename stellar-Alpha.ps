@@ -170,6 +170,7 @@ var bool hitTP2 = false
 var bool hitTP3 = false
 var bool hitTP4 = false
 var bool hitSL = false
+var bool hitTrail = false
     // panels
 var table panelStratTable = na
 
@@ -344,6 +345,7 @@ if fillActive
     hitTP3 := hitTP3 ? true : (tradeSide == "LONG" ? high >= tradeTP3Limit : low <= tradeTP3Limit)
     hitTP4 := hitTP4 ? true : (tradeSide == "LONG" ? high >= tradeTP4Limit : low <= tradeTP4Limit)
     hitSL  := hitSL  ? true : (tradeSide == "LONG" ? low <= tradeSL : high >= tradeSL)
+    hitTrail := hitTrail ? true : (tradeSide == "LONG" ? high >= tradeTrailPrice : low <= tradeTrailPrice)
 
     if hitTP1
         linefill.new(lineEntry, lineTP1, color = color.new(color.green, 85))
@@ -355,6 +357,8 @@ if fillActive
         linefill.new(lineTP3, lineTP4, color = color.new(color.green, 85))
     if hitSL
         linefill.new(lineSL, lineEntry, color = color.new(color.red, 85))
+    if hitTrail
+        linefill.new(lineTrail, lineEntry, color = color.new(color.blue, 91))
 
     if strategy.opentrades == 0
         hitTP1 := false
@@ -362,6 +366,7 @@ if fillActive
         hitTP3 := false
         hitTP4 := false
         hitSL  := false
+        hitTrail := false
         fillActive := false
 
 // Entries
@@ -382,7 +387,7 @@ if signalActive and signalMode != "only short" and ((signalTrendLong and marketS
     tradeTP4Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 4) : tradeEntryPrice* (1 + tp4Break)
     tradeTP4Size := tp4QTY * 100
     tradeSL := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultSL) : tradeEntryPrice* (1 - slBreak)
-    tradeTrailOffset = int((close * trailBreak) / syminfo.mintick)
+    tradeTrailOffset = int((close * trailSize) / syminfo.mintick)
     tradeTrailPrice := tradeEntryPrice* (1 + trailBreak)
     // once TP
     if tpOnceActive 
@@ -424,7 +429,7 @@ if signalActive and signalMode != "only long" and ((signalTrendShort and marketS
     tradeTP4Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 4) : tradeEntryPrice* (1 - tp4Break)
     tradeTP4Size := tp4QTY * 100
     tradeSL := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultSL) : tradeEntryPrice* (1 + slBreak)
-    tradeTrailOffset = int((close * trailBreak) / syminfo.mintick)
+    tradeTrailOffset = int((close * trailSize) / syminfo.mintick)
     tradeTrailPrice := tradeEntryPrice* (1 - trailBreak)
     // once TP
     if tpOnceActive 
