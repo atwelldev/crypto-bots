@@ -1615,7 +1615,7 @@ if (canLongNew and na(trade) and canSignal and strDirection != "only short" and 
         
         corShiftLong := false
         canSignal := false
-        tradeEntryPrice := close
+        // tradeEntryPrice := close
         tradeTP1Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP) : tradeEntryPrice* (1 + tp1_percent)
         tradeTP1Size := tp1_percent_fix * 100
         tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2_percent_fix)
@@ -1679,7 +1679,7 @@ if (canShortNew and na(trade) and canSignal and strDirection != "only long" and 
 
         corShiftShort := false
         canSignal := false
-        tradeEntryPrice := close
+        // tradeEntryPrice := close
         tradeTP1Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP) : tradeEntryPrice* (1 - tp1_percent)
         tradeTP1Size := tp1_percent_fix * 100
         tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2_percent_fix)
