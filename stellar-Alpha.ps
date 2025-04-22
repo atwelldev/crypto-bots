@@ -2,65 +2,13 @@
 strategy(title='STELLAR v0.1.0-Alpha', shorttitle='STELLAR v0.1.0-Alpha', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
 
 // Inputs
-// POSITION
-tradingMode = input.string(title = "Trading mode", options = ["auto", "flat", "trend"], defval = "auto", group = "POSITION")
-signalMode = input.string(title = "Entry mode (directions)", options = ["long/short","only long","only short"], defval = "long/short", group = "POSITION", tooltip = "en: Available directions of position\n\nru: Доступные направления позиции")
-calcDate = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = "POSITION", tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
-
-// GENERAL FILTERS
-    // adx
-adxLength = input.int(defval = 14, step = 1, title='ADX length (bars)', group = "GENERAL FILTERS")
-// adxDILength = input.int(defval = 14, step = 1, title='ADX DI length (bars)', group = "GENERAL FILTERS")
-adxThreshold = input.int(defval = 25, step = 1, title='ADX Strong Trend Threshold', group = "GENERAL FILTERS")
-    // cumulative delta
-deltaActive = input.bool(defval = false, title='Use cumulative delta --------------------------->', group = "GENERAL FILTERS")
-deltaLength = input.int(defval = 100, step = 1, title='Cumulative delta length (bars)', group = "GENERAL FILTERS")
-    // volumes
-volAnomalyActive = input.bool(defval = false, title='Use volume filter: "Anomaly" ------------------->', group = "GENERAL FILTERS")
-volAnomalyReverse = input.bool(defval = false, title='Reverse volume "Anomaly"', group = "GENERAL FILTERS", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
-volAnomalyMult = input.float(defval = 2.0, step = 0.05, title='Volume multiplier for "Anomaly"', group = "GENERAL FILTERS")
-volAnomalySMALen = input.int(defval = 20, step = 1, title='SMA length for "Anomaly" (bars)', group = "GENERAL FILTERS")
-volProfileActive = input.bool(defval = false, title='Use volume filter: "VP POC" -------------------->', group = "GENERAL FILTERS")
-volProfileLength = input.int(defval = 20, step = 1, title='Length for "VP POC" (bars)', group = "GENERAL FILTERS")
-volVWAPActive = input.bool(defval = false, title='Use volume filter: "VWAP" ---------------------->', group = "GENERAL FILTERS")
-
-// TREND FILTERS
-    // MACD
-macdActive = input.bool(defval = true, title = "Use MACD --------------------------------------->", group = "TREND FILTERS")
-macdFastLength = input.int(defval = 12, title="MACD fast length (bars)", step=1, group = "TREND FILTERS", minval = 1)
-macdSlowLength = input.int(defval = 26, title="MACD slow length (bars)", step=1, group = "TREND FILTERS", minval = 1)
-macdSignalLength = input.int(defval = 9, title="MACD signal length (bars)", step=1, group = "TREND FILTERS", minval = 1) 
-    // EMA
-emaActive = input.bool(defval = false, title = "Use EMA ---------------------------------------->", group = "TREND FILTERS")
-emaData = input.source(defval = close, title="Average price source", tooltip = "en: Close - current market price. Using another price source is not recommended\n\nru: Close - текущая рыночная цена. Использование других источников цены не рекомендуется", group = "TREND FILTERS")
-emaShortTerm = input.int(defval = 12, title="Short-term length (bars)", step=1, group = "TREND FILTERS", minval = 1)
-emaMiddleTerm = input.int(defval = 60, title="Middle-term length (bars)", step=5, group = "TREND FILTERS", minval = 1)
-emaUseLongTerm = input.bool(defval = false, title = "Use Long-term EMA", group = "TREND FILTERS")
-emaLongTerm = input.int(defval = 200, title="Long-term length (bars)", step=10, group = "TREND FILTERS", minval = 1)
-    // RSI
-rsiTrendActive = input.bool(defval = false, title = "Use Trend-RSI ---------------------------------->", group = "TREND FILTERS")
-rsiTrendMode = input.string(title = "Mode for Trend-RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = "TREND FILTERS", tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. ! Sensitivity = 0.1-2 is recommended. Using of this RSI-mode with EMA may give you very small number of signals !\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. ! Sensitivity = 0.1-2 рекомендуется. Использование данного RSI-режима вместе с EMA может дать очень маленькое кол-во сигналов !\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
-rsiTrendOverbought = input.int(title="Overbought", defval=70, minval = 0, maxval = 100, step = 1, group = "TREND FILTERS")
-rsiTrendOversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 100, step = 1,group = "TREND FILTERS")
-rsiTrendLength = input.int(title="Length (bars)", defval=14, group = "TREND FILTERS")
-
-// FLAT FILTERS
-    // Stochastic
-stochActive = input.bool(defval = true, title = "Use Stochastic --------------------------------->", group = "FLAT FILTERS")
-stochLength = input.int(title="%K length (bars)", defval=14, minval = 0, step = 1, group = "FLAT FILTERS")
-stochSmoothK = input.int(title="%K smooth", defval=3, minval = 0, step = 1,group = "FLAT FILTERS")
-stochSmoothD = input.int(title="%D smooth", defval=3, minval = 0, step = 1,group = "FLAT FILTERS")
-stochOverbought = input.int(title="Stochastic overbought", defval=80, minval = 1, step = 1,group = "FLAT FILTERS")
-stochOversold = input.int(title="Stochastic oversold", defval=20, minval = 1, step = 1,group = "FLAT FILTERS")
-    // Bolinger
-bollingerActive = input.bool(defval = false, title = "Use Bollinger ---------------------------------->", group = "FLAT FILTERS") 
-bollingerLength = input.int(title="SMA length (bars)", defval=20, minval = 0, step = 1, group = "FLAT FILTERS")
-bollingerMult = input.float(title="Standard Deviation Multiplier", defval=2.0, minval = 0, step = 0.1, group = "FLAT FILTERS")
-    // RSI
-rsiFlatActive = input.bool(defval = false, title = "Use Flat-RSI ---------------------------------->", group = "FLAT FILTERS")
-rsiFlatOverbought = input.int(title="Overbought", defval=70, minval = 0, maxval = 100, step = 1, group = "FLAT FILTERS")
-rsiFlatOversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 100, step = 1,group = "FLAT FILTERS")
-rsiFlatLength = input(title="Length (bars)", defval=14, group = "FLAT FILTERS")
+// GENERAL
+tradingMode = input.string(title = "Trading mode", options = ["auto", "flat", "trend"], defval = "auto", group = "GENERAL")
+signalMode = input.string(title = "Entry mode (directions)", options = ["long/short","only long","only short"], defval = "long/short", group = "GENERAL", tooltip = "en: Available directions of position\n\nru: Доступные направления позиции")
+calcDate = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = "GENERAL", tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+adxLength = input.int(defval = 14, step = 1, title='ADX length (bars)', group = "GENERAL")
+adxTrendThreshold = input.int(defval = 25, step = 1, title='ADX Strong Trend Threshold', group = "GENERAL")
+adxFlatThreshold = input.int(defval = 20, step = 1, title='ADX Strong Flat Threshold', group = "GENERAL")
 
 // TP/SL/Trail
 tpOnceActive = input.bool(title="Use only 1 takeprofit (TP-1)", defval=false, group = "TP/SL/Trail",  tooltip = "en: 1 TP will close the position completely, 'Size (%)' will not affect\n\nru: Первый тейкпрофит закроет позицию полностью, 'Size (%)' не возымеет эффекта")
@@ -80,6 +28,58 @@ atrLength = input.int(defval = 14, step = 1, title='ATR length (bars)', group = 
 atrMultTP = input.float(defval = 2.0, step = 0.1, title='Multiplier for TP', group = "TP/SL/Trail")
 atrMultTrail = input.float(defval = 1.0, step = 0.1, title='Multiplier for Trail', group = "TP/SL/Trail")
 atrMultSL = input.float(defval = 1.0, step = 0.1, title='Multiplier for SL', group = "TP/SL/Trail")
+
+// TREND FILTERS
+    // MACD
+macdActive = input.bool(defval = true, title = "Use MACD --------------------------------------->", group = "TREND FILTERS")
+macdFastLength = input.int(defval = 12, title="MACD fast length (bars)", step=1, group = "TREND FILTERS", minval = 1)
+macdSlowLength = input.int(defval = 26, title="MACD slow length (bars)", step=1, group = "TREND FILTERS", minval = 1)
+macdSignalLength = input.int(defval = 9, title="MACD signal length (bars)", step=1, group = "TREND FILTERS", minval = 1) 
+    // EMA
+emaActive = input.bool(defval = true, title = "Use EMA ---------------------------------------->", group = "TREND FILTERS")
+emaData = input.source(defval = close, title="Average price source", tooltip = "en: Close - current market price. Using another price source is not recommended\n\nru: Close - текущая рыночная цена. Использование других источников цены не рекомендуется", group = "TREND FILTERS")
+emaShortTerm = input.int(defval = 12, title="Short-term length (bars)", step=1, group = "TREND FILTERS", minval = 1)
+emaMiddleTerm = input.int(defval = 60, title="Middle-term length (bars)", step=5, group = "TREND FILTERS", minval = 1)
+emaUseLongTerm = input.bool(defval = false, title = "Use Long-term EMA", group = "TREND FILTERS")
+emaLongTerm = input.int(defval = 200, title="Long-term length (bars)", step=10, group = "TREND FILTERS", minval = 1)
+    // RSI
+rsiTrendActive = input.bool(defval = false, title = "Use Trend-RSI ---------------------------------->", group = "TREND FILTERS")
+rsiTrendMode = input.string(title = "Mode for Trend-RSI", defval = "Overbought-sell, oversold-buy", options = ["Overbought-sell, oversold-buy", "Overbought-buy, oversold-sell"], group = "TREND FILTERS", tooltip = "en: Available modes for RSI.\n1. 'Overbought-sell, oversold-buy' (for reversal): goes short if RSI > overbought, goes long if RSI < oversold. '70 and 30' is recommended. ! Sensitivity = 0.1-2 is recommended. Using of this RSI-mode with EMA may give you very small number of signals !\n2. 'Overbought-buy, oversold-sell' (for trend power): goes short if RSI < oversold, goes long if RSI > overbought. '60 and 40' is recommended\n\nru: Доступные режимы для RSI.\n1. 'Overbought-sell, oversold-buy' (для разворота): входит в short если RSI > overbought, входит в long если RSI < oversold. '70 и 30' рекомендуется. ! Sensitivity = 0.1-2 рекомендуется. Использование данного RSI-режима вместе с EMA может дать очень маленькое кол-во сигналов !\n2. 'Overbought-buy, oversold-sell' (для силы тренда): входит в short если RSI < oversold, входит в long если RSI > overbought. '60 и 40' рекомендуется.\nOverbought - перекупленность, oversold - перепроданность")
+rsiTrendOverbought = input.int(title="Overbought", defval=70, minval = 0, maxval = 100, step = 1, group = "TREND FILTERS")
+rsiTrendOversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 100, step = 1,group = "TREND FILTERS")
+rsiTrendLength = input.int(title="Length (bars)", defval=14, group = "TREND FILTERS")
+
+// FLAT FILTERS
+    // Stochastic
+stochActive = input.bool(defval = false, title = "Use Stochastic --------------------------------->", group = "FLAT FILTERS")
+stochLength = input.int(title="%K length (bars)", defval=14, minval = 0, step = 1, group = "FLAT FILTERS")
+stochSmoothK = input.int(title="%K smooth", defval=3, minval = 0, step = 1,group = "FLAT FILTERS")
+stochSmoothD = input.int(title="%D smooth", defval=3, minval = 0, step = 1,group = "FLAT FILTERS")
+stochOverbought = input.int(title="Stochastic overbought", defval=80, minval = 1, step = 1,group = "FLAT FILTERS")
+stochOversold = input.int(title="Stochastic oversold", defval=20, minval = 1, step = 1,group = "FLAT FILTERS")
+    // Bolinger
+bollingerActive = input.bool(defval = true, title = "Use Bollinger ---------------------------------->", group = "FLAT FILTERS") 
+bollingerLength = input.int(title="SMA length (bars)", defval=20, minval = 0, step = 1, group = "FLAT FILTERS")
+bollingerMult = input.float(title="Standard Deviation Multiplier", defval=2.0, minval = 0, step = 0.1, group = "FLAT FILTERS")
+    // RSI
+rsiFlatActive = input.bool(defval = true, title = "Use Flat-RSI ---------------------------------->", group = "FLAT FILTERS")
+rsiFlatOverbought = input.int(title="Overbought", defval=70, minval = 0, maxval = 100, step = 1, group = "FLAT FILTERS")
+rsiFlatOversold = input.int(title="Oversold", defval=30, minval = 0, maxval = 100, step = 1,group = "FLAT FILTERS")
+rsiFlatLength = input(title="Length (bars)", defval=14, group = "FLAT FILTERS")
+
+// ADDITIONAL FITLERS
+// adxDILength = input.int(defval = 14, step = 1, title='ADX DI length (bars)', group = "ADDITIONAL FITLERS")
+    // cumulative delta
+deltaActive = input.bool(defval = false, title='Use cumulative delta --------------------------->', group = "ADDITIONAL FITLERS")
+deltaLength = input.int(defval = 100, step = 1, title='Cumulative delta length (bars)', group = "ADDITIONAL FITLERS")
+    // volumes
+volAnomalyActive = input.bool(defval = false, title='Use volume filter: "Anomaly" ------------------->', group = "ADDITIONAL FITLERS")
+volAnomalyReverse = input.bool(defval = false, title='Reverse volume "Anomaly"', group = "ADDITIONAL FITLERS", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
+volAnomalyMult = input.float(defval = 2.0, step = 0.05, title='Volume multiplier for "Anomaly"', group = "ADDITIONAL FITLERS")
+volAnomalySMALen = input.int(defval = 20, step = 1, title='SMA length for "Anomaly" (bars)', group = "ADDITIONAL FITLERS")
+volProfileActive = input.bool(defval = false, title='Use volume filter: "VP POC" -------------------->', group = "ADDITIONAL FITLERS")
+volProfileLength = input.int(defval = 20, step = 1, title='Length for "VP POC" (bars)', group = "ADDITIONAL FITLERS")
+volVWAPActive = input.bool(defval = false, title='Use volume filter: "VWAP" ---------------------->', group = "ADDITIONAL FITLERS")
 
 // RISK CONTROL
 maxLossTradesActive = input.bool(defval = false, title = "Stop on max loss trades in a row", group = "RISK CONTROL", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
@@ -175,18 +175,23 @@ var bool hitTrail = false
     // panels
 var table panelStratTable = na
 
-// GENERAL FILTERS
+// ADDITIONAL FITLERS
 // ATR
 if atrAutoActive
     atrVal := ta.atr(atrLength)
 
 // ADX
 [diPlus, diMinus, adxVal] = ta.dmi(adxLength, adxLength)
-if adxVal >= adxThreshold
+if adxVal >= adxTrendThreshold
     marketState := "trend" 
-else 
+else if adxVal <= adxFlatThreshold
     marketState := "flat"
+else 
+    marketState := "unstable"
+
 plot(marketState == "trend" ? 999 : 111)
+plot(marketState == "flat" ? 333 : 111)
+plot(adxVal)
 
 // Delta
 if deltaActive
