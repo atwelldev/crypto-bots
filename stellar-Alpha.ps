@@ -75,9 +75,10 @@ tp4QTY = input.float(title = "TP-4 size (%)", step = 5, defval=10, group = "TP/S
 trailBreak = input.float(title="Trail price (%)", step = 0.05, defval=0.5, minval = 0.00001, group = "TP/SL/Trail", inline = "2.6") / 100
 trailSize = input.float(title="Trail size (%)", step = 0.05, defval = 0.1, group = "TP/SL/Trail", inline = "2.6") / 100
 slBreak = input.float(title="Stoploss price (%)", step = 0.1, defval=0.3, group = "TP/SL/Trail") / 100
-atrAutoActive = input.bool(title = "Use auto TP/SL by ATR", group = "TP/SL/Trail", defval = false)
+atrAutoActive = input.bool(title = "Use auto TP/SL/Trail by ATR", group = "TP/SL/Trail", defval = false)
 atrLength = input.int(defval = 14, step = 1, title='ATR length (bars)', group = "TP/SL/Trail")
 atrMultTP = input.float(defval = 2.0, step = 0.1, title='Multiplier for TP', group = "TP/SL/Trail")
+atrMultTrail = input.float(defval = 1.0, step = 0.1, title='Multiplier for Trail', group = "TP/SL/Trail")
 atrMultSL = input.float(defval = 1.0, step = 0.1, title='Multiplier for SL', group = "TP/SL/Trail")
 
 // RISK CONTROL
@@ -388,7 +389,7 @@ if signalActive and signalMode != "only short" and ((signalTrendLong and marketS
     tradeTP4Size := tp4QTY * 100
     tradeSL := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultSL) : tradeEntryPrice* (1 - slBreak)
     tradeTrailOffset = int((close * trailSize) / syminfo.mintick)
-    tradeTrailPrice := tradeEntryPrice* (1 + trailBreak)
+    tradeTrailPrice := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTrail) : tradeEntryPrice* (1 + trailBreak)
     // once TP
     if tpOnceActive 
         strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
@@ -430,7 +431,7 @@ if signalActive and signalMode != "only long" and ((signalTrendShort and marketS
     tradeTP4Size := tp4QTY * 100
     tradeSL := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultSL) : tradeEntryPrice* (1 + slBreak)
     tradeTrailOffset = int((close * trailSize) / syminfo.mintick)
-    tradeTrailPrice := tradeEntryPrice* (1 - trailBreak)
+    tradeTrailPrice := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTrail) : tradeEntryPrice* (1 - trailBreak)
     // once TP
     if tpOnceActive 
         strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
