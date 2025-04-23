@@ -344,7 +344,7 @@ strategy_input = "MANUAL"
 posMode = input.string(title = "Entry mode (directions)", options = ["long/short","only long","only short", "auto"], defval = "long/short", group = POSITION, tooltip = "en: Available directions of position\n\nru: Доступные направления позиции")
 int  autoLength     = input.int(defval = 240, title="Trend length for auto mode (bars)", minval = 15, step = 5, group = POSITION, tooltip = "en: If auto mode is chosen, strategy calculates middle term trend (by defined size of trend) and decide, what's kind of entries (long or short) should be used \n\nru: Если выбран автоматическией режим, то стратегия вычисляет среднесрочный тренд (на основе указанного кол-ва баров) и решает, в какую позицию (лонг или шорт) входить") // Length for the moving average calculations
 //pivotLenLiq = input.int(4, "Pivot Length", group = "General Configuration", display = display.none)
-higherTimeframe = input.timeframe("60", "Higher TF", group = POSITION)
+higherTimeframe = input.timeframe("60", "TF for liquidity", group = POSITION)
 mssOffset = input.int(10, "Market structure shift length", group = POSITION)
 // breakoutMethod = input.string("Wick", "Intersection method", options = ["Close", "Wick"], group = POSITION)
 breakoutMethod = "Wick"
@@ -414,6 +414,12 @@ trailTP = input.int(title="TP-num for trailing", options = [1, 2], defval = 1, g
 trailWithPercent = input.bool(title = "Trail after % of price", defval = false, group = STOP_LOSS, tooltip = "en: Trail will only start with % of price. 'TP-num for trailing' will not affect\n\nru: Трейл запускается от % от изначальной цены, 'TP-num for trailing' не возымеет эффекта")
 trailStartPercent = input.float(title="% for trail start", step = 0.05, defval=0.5, minval = 0.00001, group = STOP_LOSS)
 trailStartPercent /= 100
+atrAutoActive = input.bool(title = "Use auto TP/SL/Trail by ATR", group = STOP_LOSS, defval = false)
+atrLength = input.int(defval = 14, step = 1, title='ATR length (bars)', group = STOP_LOSS)
+atrMultTP = input.float(defval = 2.0, step = 0.1, title='Multiplier for TP', group = STOP_LOSS)
+atrMultTrail = input.float(defval = 1.0, step = 0.1, title='Multiplier for Trail', group = STOP_LOSS)
+atrMultSL = input.float(defval = 1.0, step = 0.1, title='Multiplier for SL', group = STOP_LOSS)
+
 
 // Correction shift
 useCorShift = input.bool(defval = false, title = "Use corrective shift", group = "CORRECTIVE SHIFT", tooltip = "en: To open positions after correction. The strategy waits for the price to cross the entry price (by signal) by the specified percentage then opens position. Waiting for correction ends if a new signal is received or the price has crossed the 1 TP level.\n\nru: Открывать позицию после коррекции. Стратегия ждет, когда цена пересечет изначальную цену входа (от сигнала) на указанный %, затем открывает позицию. Ожидание коррекции прекращается, если был получен новый сигнал или цена пересекла уровень 1-TP")
@@ -585,7 +591,7 @@ type TurtleSoup
     string entryType
     int entryTime
     int exitTime
-    float entryPrice
+    float tradeEntryPrice
     float exitPrice
     int dayEndedBeforeExit
 
@@ -687,25 +693,25 @@ if bar_index > last_bar_index - maxDistanceToLastBar
                             sellAlertTick := true
                             lastTS.state := "Entry Taken"
                             lastTS.entryTime := time
-                            lastTS.entryPrice := (breakoutMethod == "Close" ? close : lowMSS[1])
+                            lastTS.tradeEntryPrice := (breakoutMethod == "Close" ? close : lowMSS[1])
                             if tpslMethod == "Fixed"
-                                lastTS.slTarget := lastTS.entryPrice * (1 + slPercent / 100.0)
-                                lastTS.tpTarget := lastTS.entryPrice * (1 - tpPercent / 100.0)
+                                lastTS.slTarget := lastTS.tradeEntryPrice * (1 + slPercent / 100.0)
+                                lastTS.tpTarget := lastTS.tradeEntryPrice * (1 - tpPercent / 100.0)
                             else
                                 lastTS.slTarget := highMSS + atrNew * slATRMult
-                                lastTS.tpTarget := lastTS.entryPrice - (math.abs(lastTS.entryPrice - lastTS.slTarget) * RR)
+                                lastTS.tpTarget := lastTS.tradeEntryPrice - (math.abs(lastTS.tradeEntryPrice - lastTS.slTarget) * RR)
                     else // Long
                         if (breakoutMethod == "Close" ? close : high) > highMSS[1]
                             buyAlertTick := true
                             lastTS.state := "Entry Taken"
                             lastTS.entryTime := time
-                            lastTS.entryPrice := (breakoutMethod == "Close" ? close : highMSS[1])
+                            lastTS.tradeEntryPrice := (breakoutMethod == "Close" ? close : highMSS[1])
                             if tpslMethod == "Fixed"
-                                lastTS.slTarget := lastTS.entryPrice * (1 - slPercent / 100.0)
-                                lastTS.tpTarget := lastTS.entryPrice * (1 + tpPercent / 100.0)
+                                lastTS.slTarget := lastTS.tradeEntryPrice * (1 - slPercent / 100.0)
+                                lastTS.tpTarget := lastTS.tradeEntryPrice * (1 + tpPercent / 100.0)
                             else
                                 lastTS.slTarget := lowMSS - atrNew * slATRMult
-                                lastTS.tpTarget := lastTS.entryPrice + (math.abs(lastTS.entryPrice - lastTS.slTarget) * RR)
+                                lastTS.tpTarget := lastTS.tradeEntryPrice + (math.abs(lastTS.tradeEntryPrice - lastTS.slTarget) * RR)
     
     // Entry Taken
     if not na(lastTS)
@@ -713,29 +719,29 @@ if bar_index > last_bar_index - maxDistanceToLastBar
             // log.info("Entry Taken")
             if tpslMethod == "Fixed"
                 // Take Profit
-                if lastTS.entryType == "Long" and ((high / lastTS.entryPrice) - 1) * 100 >= tpPercent
+                if lastTS.entryType == "Long" and ((high / lastTS.tradeEntryPrice) - 1) * 100 >= tpPercent
                     tpAlertTick := true
-                    lastTS.exitPrice := lastTS.entryPrice * (1 + tpPercent / 100.0)
+                    lastTS.exitPrice := lastTS.tradeEntryPrice * (1 + tpPercent / 100.0)
                     lastTS.exitTime := time
                     lastTS.state := "Take Profit"
                     highBreaks += 1
-                if lastTS.entryType == "Short" and ((low / lastTS.entryPrice) - 1) * 100 <= -tpPercent
+                if lastTS.entryType == "Short" and ((low / lastTS.tradeEntryPrice) - 1) * 100 <= -tpPercent
                     tpAlertTick := true
-                    lastTS.exitPrice := lastTS.entryPrice * (1 - tpPercent / 100.0)
+                    lastTS.exitPrice := lastTS.tradeEntryPrice * (1 - tpPercent / 100.0)
                     lastTS.exitTime := time
                     lastTS.state := "Take Profit"
                     lowBreaks += 1
                 
                 // Stop Loss
-                if lastTS.entryType == "Long" and ((low / lastTS.entryPrice) - 1) * 100 <= -slPercent
+                if lastTS.entryType == "Long" and ((low / lastTS.tradeEntryPrice) - 1) * 100 <= -slPercent
                     slAlertTick := true
-                    lastTS.exitPrice := lastTS.entryPrice * (1 - slPercent / 100.0)
+                    lastTS.exitPrice := lastTS.tradeEntryPrice * (1 - slPercent / 100.0)
                     lastTS.exitTime := time
                     lastTS.state := "Stop Loss"
                     highBreaks -= 1
-                if lastTS.entryType == "Short" and ((high / lastTS.entryPrice) - 1) * 100 >= slPercent
+                if lastTS.entryType == "Short" and ((high / lastTS.tradeEntryPrice) - 1) * 100 >= slPercent
                     slAlertTick := true
-                    lastTS.exitPrice := lastTS.entryPrice * (1 + slPercent / 100.0)
+                    lastTS.exitPrice := lastTS.tradeEntryPrice * (1 + slPercent / 100.0)
                     lastTS.exitTime := time
                     lastTS.state := "Stop Loss"
                     lowBreaks -= 1
@@ -877,11 +883,11 @@ if barstate.islastconfirmedhistory
 //                         boxX.push(box.new(curTS.entryTime, curTS.slTarget + offset, endTime, curTS.slTarget - offset, text = "STOP LOSS (" + str.tostring(curTS.slTarget, format.mintick) + ")", text_color = textColor, xloc = xloc.bar_time, border_width = 0, bgcolor = color.new(lowColor, 50) , text_size = size.small))
 //                     else if dbgTPSLVersion == "Default"
 //                         endTime = nz(curTS.exitTime, time("", -15))
-//                         lineX.push(line.new(curTS.entryTime, curTS.entryPrice, curTS.entryTime, curTS.tpTarget, xloc = xloc.bar_time, color = highColor, style = line.style_dashed))
+//                         lineX.push(line.new(curTS.entryTime, curTS.tradeEntryPrice, curTS.entryTime, curTS.tpTarget, xloc = xloc.bar_time, color = highColor, style = line.style_dashed))
 //                         lineX.push(line.new(curTS.entryTime, curTS.tpTarget, endTime, curTS.tpTarget, xloc = xloc.bar_time, color = highColor, style = line.style_dashed))
 //                         labelX.push(label.new(endTime, curTS.tpTarget, "TP", xloc = xloc.bar_time, yloc = yloc.price, textcolor = textColor, color = color.new(highColor, 50), style = label.style_label_left, size = lblSize))
 //                         //
-//                         lineX.push(line.new(curTS.entryTime, curTS.entryPrice, curTS.entryTime, curTS.slTarget, xloc = xloc.bar_time, color = lowColor, style = line.style_dashed))
+//                         lineX.push(line.new(curTS.entryTime, curTS.tradeEntryPrice, curTS.entryTime, curTS.slTarget, xloc = xloc.bar_time, color = lowColor, style = line.style_dashed))
 //                         lineX.push(line.new(curTS.entryTime, curTS.slTarget, endTime, curTS.slTarget, xloc = xloc.bar_time, color = lowColor, style = line.style_dashed))
 //                         labelX.push(label.new(endTime, curTS.slTarget, "SL", xloc = xloc.bar_time, yloc = yloc.price, textcolor = textColor, color = color.new(lowColor, 50), style = label.style_label_left, size = lblSize))
 
@@ -904,14 +910,14 @@ if barstate.islastconfirmedhistory
 //     if tsList.size() > 0
 //         for i = 0 to tsList.size() - 1
 //             curTS = tsList.get(i)
-//             if not na(curTS.entryPrice)
+//             if not na(curTS.tradeEntryPrice)
 //                 isSuccess = false
 //                 if not na(curTS.exitPrice)
-//                     if (curTS.entryType == "Long" and curTS.exitPrice > curTS.entryPrice) or (curTS.entryType == "Short" and curTS.exitPrice < curTS.entryPrice)
-//                         totalTSProfitPercent += math.abs(diffPercent(curTS.entryPrice, curTS.exitPrice))
+//                     if (curTS.entryType == "Long" and curTS.exitPrice > curTS.tradeEntryPrice) or (curTS.entryType == "Short" and curTS.exitPrice < curTS.tradeEntryPrice)
+//                         totalTSProfitPercent += math.abs(diffPercent(curTS.tradeEntryPrice, curTS.exitPrice))
 //                         isSuccess := true
 //                     else
-//                         totalTSProfitPercent -= math.abs(diffPercent(curTS.entryPrice, curTS.exitPrice))
+//                         totalTSProfitPercent -= math.abs(diffPercent(curTS.tradeEntryPrice, curTS.exitPrice))
 //                         isSuccess := false
 
 //                 if isSuccess
@@ -1275,7 +1281,7 @@ if not na(trade)
 //     currentSL := tp1_percent
 //     posSize := strategy.position_size
 //     strategy.cancel_all()
-//     strategy.exit("Long TP-2", from_entry="Enter Long", limit=entryPrice* (1 + tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
+//     strategy.exit("Long TP-2", from_entry="Enter Long", limit=tradeEntryPrice* (1 + tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
 //     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
 //     // if StopTPNum == 1 
 //     //     currentSL := tp1_percent
@@ -1284,7 +1290,7 @@ if not na(trade)
 //     currentSL := tp2_percent
 //     posSize := strategy.position_size
 //     strategy.cancel_all()
-//     strategy.exit("Long TP-3", from_entry="Enter Long", limit=entryPrice* (1 + tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100 )
+//     strategy.exit("Long TP-3", from_entry="Enter Long", limit=tradeEntryPrice* (1 + tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100 )
 //     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
 //     // if StopTPNum == 2 
 //     //     currentSL := tp2_percent
@@ -1293,72 +1299,72 @@ if not na(trade)
 //     currentSL := tp3_percent
 //     posSize := strategy.position_size
 //     strategy.cancel_all()
-//     strategy.exit("Long TP-4", from_entry="Enter Long", limit=entryPrice* (1 + tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
+//     strategy.exit("Long TP-4", from_entry="Enter Long", limit=tradeEntryPrice* (1 + tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
 //     strategy.exit("Long Trail", from_entry="Enter Long", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     
     // 3
     // if StopTPNum == 3 
     //     currentSL := tp3_percent
-// else if (tradeSide == "LONG" and close >= entryPrice * (1 + tp4_percent) and currentTP == 4)
+// else if (tradeSide == "LONG" and close >= tradeEntryPrice * (1 + tp4_percent) and currentTP == 4)
     // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
     // strategy.cancel_all()
     // currentTP := 0
     // canSignal := true
-// else if (currentSL > 0 and tradeSide == "LONG" and close <= (entryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
+// else if (currentSL > 0 and tradeSide == "LONG" and close <= (tradeEntryPrice * (1 + currentSL)) * (1 - TPsl_percent) )
     // strategy.cancel_all()
-    // strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop=(entryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
+    // strategy.exit("Long Trailing-SL", from_entry="Enter Long", stop=(tradeEntryPrice * (1 + currentSL)) * (1 - TPsl_percent), qty_percent=100)
     // currentTP := 0
     // canSignal := true
-// else if (currentSL == 0 and tradeSide == "LONG" and close <= entryPrice * (1 - sl_percent))
+// else if (currentSL == 0 and tradeSide == "LONG" and close <= tradeEntryPrice * (1 - sl_percent))
     // strategy.cancel_all()
-    // strategy.exit("Long SL", from_entry="Enter Long", stop=entryPrice* (1 - sl_percent), qty_percent=100 )
+    // strategy.exit("Long SL", from_entry="Enter Long", stop=tradeEntryPrice* (1 - sl_percent), qty_percent=100 )
     // strategy.close("Enter Long", immediately = true)
     // currentTP := 0
     // canSignal := true
 
 // Short
-// if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp1_percent) and currentTP == 1)
+// if (tradeSide == "SHORT" and close <= tradeEntryPrice * (1 - tp1_percent) and currentTP == 1)
 //     currentTP := 2
 //     currentSL := tp1_percent
 //     strategy.cancel_all()
-//     strategy.exit("Short TP-2", from_entry="Enter Short", limit=entryPrice* (1 - tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
+//     strategy.exit("Short TP-2", from_entry="Enter Short", limit=tradeEntryPrice* (1 - tp2_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100 )
 //     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
 //     // if StopTPNum == 1 
 //     //     currentSL := tp1_percent
-// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp2_percent) and currentTP == 2)
+// else if (tradeSide == "SHORT" and close <= tradeEntryPrice * (1 - tp2_percent) and currentTP == 2)
 //     currentTP := 3
 //     currentSL := tp2_percent
 //     strategy.cancel_all()
-//     strategy.exit("Short TP-3", from_entry="Enter Short", limit=entryPrice* (1 - tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100 )
+//     strategy.exit("Short TP-3", from_entry="Enter Short", limit=tradeEntryPrice* (1 - tp3_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100 )
 //     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
 //     // if StopTPNum == 2 
 //     //     currentSL := tp2_percent
-// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp3_percent) and currentTP == 3)
+// else if (tradeSide == "SHORT" and close <= tradeEntryPrice * (1 - tp3_percent) and currentTP == 3)
 //     currentTP := 4   
 //     currentSL := tp3_percent 
 //     strategy.cancel_all()
-//     strategy.exit("Short TP-4", from_entry="Enter Short", limit=entryPrice* (1 - tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
+//     strategy.exit("Short TP-4", from_entry="Enter Short", limit=tradeEntryPrice* (1 - tp4_percent), trail_points = 0, trail_offset = trailOffset, qty_percent=tp4_percent_fix * 100 )
 //     strategy.exit("Short Trail", from_entry="Enter Short", trail_points = 0, trail_offset = trailOffset, qty_percent=100)
     // if StopTPNum == 3 
     //     currentSL := tp3_percent
-// else if (tradeSide == "SHORT" and close <= entryPrice * (1 - tp4_percent) and currentTP == 4)
+// else if (tradeSide == "SHORT" and close <= tradeEntryPrice * (1 - tp4_percent) and currentTP == 4)
     // strategy.close("Enter Long", qty_percent = tp4_percent_fix * 100)
     // strategy.cancel_all()
     // currentTP := 0
     // canSignal := true
-// else if (currentSL > 0 and tradeSide == "SHORT" and close >= (entryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
+// else if (currentSL > 0 and tradeSide == "SHORT" and close >= (tradeEntryPrice * (1 - currentSL)) * (1 + TPsl_percent) )
     // strategy.cancel_all()
-    // strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop=(entryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
+    // strategy.exit("Short Trailing-SL", from_entry="Enter Short", stop=(tradeEntryPrice * (1 - currentSL)) * (1 + TPsl_percent), qty_percent=100)
     // currentTP := 0
     // canSignal := true
-// else if (currentSL == 0 and tradeSide == "SHORT" and close >= entryPrice * (1 + sl_percent))
+// else if (currentSL == 0 and tradeSide == "SHORT" and close >= tradeEntryPrice * (1 + sl_percent))
     // strategy.cancel_all()
-    // strategy.exit("Short SL", from_entry="Enter Short", stop=entryPrice* (1 + sl_percent), qty_percent=100 )
+    // strategy.exit("Short SL", from_entry="Enter Short", stop=tradeEntryPrice* (1 + sl_percent), qty_percent=100 )
     // strategy.close("Enter Long", immediately = true)
     // currentTP := 0
     // canSignal := true
 
-varip float entryPrice = 0
+varip float tradeEntryPrice = 0
 varip string tradeSide = ""
 varip bool canSignal = true
 varip int trailOffset = 0 
@@ -1387,15 +1393,15 @@ barIndex = bar_index
 var bool corBarPassed = false
 corBarPassed := corStartBar != 0 and (barIndex - corStartBar >= corShiftBars)
 
-if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : entryPrice * (1- corShiftSize) ) and (close >= entryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= (useCorShiftAuto ? fib_382 : tradeEntryPrice * (1- corShiftSize) ) and (close >= tradeEntryPrice* (1 - sl_percent) or corShiftMode == "Move TP/SL")
     corShiftLong := true
     corShiftWait := false
     canDrawCor := false
-if useCorShift and corShiftWait and tradeSide == "LONG" and close <= entryPrice* (1 - sl_percent)  and corShiftMode == "Don't move TP/SL"
+if useCorShift and corShiftWait and tradeSide == "LONG" and close <= tradeEntryPrice* (1 - sl_percent)  and corShiftMode == "Don't move TP/SL"
     corShiftLong := false
     corShiftWait := false
     canDrawCor := false
-if useCorShift and corShiftWait and tradeSide == "LONG" and close >= entryPrice * (1+ tp1_percent) 
+if useCorShift and corShiftWait and tradeSide == "LONG" and close >= tradeEntryPrice * (1+ tp1_percent) 
     corShiftLong := false
     corShiftWait := false
     canDrawCor := false
@@ -1405,15 +1411,15 @@ if useCorShift and corShiftWait and tradeSide == "LONG" and useCorShiftBars and 
     canDrawCor := false
 
 
-if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? fib_618 : entryPrice * (1+ corShiftSize)) and (close <= entryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= (useCorShiftAuto ? fib_618 : tradeEntryPrice * (1+ corShiftSize)) and (close <= tradeEntryPrice* (1 + sl_percent) or corShiftMode == "Move TP/SL")
     corShiftShort := true
     corShiftWait := false
     canDrawCor := false
-if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= entryPrice* (1+ sl_percent) and corShiftMode == "Don't move TP/SL"
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close >= tradeEntryPrice* (1+ sl_percent) and corShiftMode == "Don't move TP/SL"
     corShiftShort := false
     corShiftWait := false
     canDrawCor := false
-if useCorShift and corShiftWait and tradeSide == "SHORT" and close <= entryPrice * (1- tp1_percent) 
+if useCorShift and corShiftWait and tradeSide == "SHORT" and close <= tradeEntryPrice * (1- tp1_percent) 
     corShiftShort := false
     corShiftWait := false
     canDrawCor := false
@@ -1568,13 +1574,31 @@ else if strDirection == "only short"
     can_long := false
     canLongNew := false
 
+var float atrVal = 0
+var float tradeTP1Limit = 0
+var float tradeTP2Limit = 0
+var float tradeTP3Limit = 0
+var float tradeTP4Limit = 0
+var float tradeTP1Size = 0
+var float tradeTP2Size = 0
+var float tradeTP3Size = 0
+var float tradeTP4Size = 0
+var float tradeSL = 0
+var float tradeTrailPrice = 0
+// ATR
+if atrAutoActive
+    atrVal := ta.atr(atrLength)
+
+
+
+
 // Entries
 if (canLongNew and na(trade) and canSignal and strDirection != "only short" and longRSI and longEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPLong)) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
     tradeSide := "LONG"
     canDrawCor := false
     
     if useCorShift and corShiftLong == false
-        entryPrice := close
+        tradeEntryPrice := close
         if corShiftMode == "Don't move TP/SL"
             canDraw := true
         corShiftWait := true
@@ -1587,51 +1611,58 @@ if (canLongNew and na(trade) and canSignal and strDirection != "only short" and 
 
         if useCorShift == false or (useCorShift and corShiftMode == "Move TP/SL")
             canDraw := true
-            entryPrice := close
+            tradeEntryPrice := close
         
         corShiftLong := false
         canSignal := false
-     
+        // tradeEntryPrice := close
+        tradeTP1Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP) : tradeEntryPrice* (1 + tp1_percent)
+        tradeTP1Size := tp1_percent_fix * 100
+        tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2_percent_fix)
+        tradeTP2Size := tp2_percent_fix * 100
+        tradeTP3Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 + tp3_percent)
+        tradeTP3Size := tp3_percent_fix * 100
+        tradeSL := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultSL) : tradeEntryPrice* (1 - sl_percent)
         trailOffset := int((close * (trailPercent / 100)) / syminfo.mintick)
         if trailWithPercent == true
-            trailPrice := entryPrice* (1 + trailStartPercent)
+            tradeTrailPrice := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTrail) : tradeEntryPrice* (1 + trailStartPercent)
         else 
             if trailTP == 0
-                trailPrice := 0
+                tradeTrailPrice := 0
             else if trailTP == 1
-                trailPrice := entryPrice* (1 + tp1_percent)
+                tradeTrailPrice := tradeTP1Limit
             else if trailTP == 2
-                trailPrice := entryPrice* (1 + tp2_percent)
+                tradeTrailPrice := tradeTP2Limit
             // else if trailTP == 3
-            //     trailPrice := entryPrice* (1 + tp3_percent)
+            //     trailPrice := tradeEntryPrice* (1 + tp3_percent)
         // once TP
         if onceTP 
-            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
         else 
             // Проверка на 0 ордера
             if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
-                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=tradeTP1Size, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
             else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
-                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")    
+                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
             
             if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
-                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
+                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=tradeTP2Size, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss")
             else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
-                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss" )
+                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss")
             
             if tp3_percent_fix != 0 and tp4_percent_fix != 0
-                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
+                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=tradeTP3Size, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss")
             else if tp3_percent_fix != 0 and tp4_percent_fix == 0
-                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss" )
+                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss")
             
             // if tp4_percent_fix != 0
-            //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
+            //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? tradeEntryPrice* (1 - sl_percent) : fib_786, limit=tradeEntryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
 if (canShortNew and na(trade) and canSignal and strDirection != "only long" and shortRSI and shortEMA and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPShort)) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
     tradeSide := "SHORT"
     canDrawCor := false
     if useCorShift and corShiftShort == false
-        entryPrice := close
+        tradeEntryPrice := close
         if corShiftMode == "Don't move TP/SL"
             canDraw := true
         corShiftWait := true
@@ -1644,50 +1675,55 @@ if (canShortNew and na(trade) and canSignal and strDirection != "only long" and 
 
         if useCorShift == false or (useCorShift and corShiftMode == "Move TP/SL")
             canDraw := true
-            entryPrice := close
+            tradeEntryPrice := close
 
         corShiftShort := false
         canSignal := false
-        
+        // tradeEntryPrice := close
+        tradeTP1Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP) : tradeEntryPrice* (1 - tp1_percent)
+        tradeTP1Size := tp1_percent_fix * 100
+        tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2_percent_fix)
+        tradeTP2Size := tp2_percent_fix * 100
+        tradeTP3Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 - tp3_percent)
+        tradeTP3Size := tp3_percent_fix * 100
+        tradeSL := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultSL) : tradeEntryPrice* (1 + sl_percent)
         trailOffset := int((close * (trailPercent / 100)) / syminfo.mintick)
         if trailWithPercent == true
-            trailPrice := entryPrice* (1 - trailStartPercent)
+            tradeTrailPrice := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTrail) : tradeEntryPrice* (1 - trailStartPercent)
         else 
             if trailTP == 0
-                trailPrice := 0
+                tradeTrailPrice := 0
             else if trailTP == 1
-                trailPrice := entryPrice* (1 - tp1_percent)
+                tradeTrailPrice := tradeTP1Limit
             else if trailTP == 2
-                trailPrice := entryPrice* (1 - tp2_percent)
+                tradeTrailPrice := tradeTP2Limit
             // else if trailTP == 3
-            //     trailPrice := entryPrice* (1 - tp3_percent)
-        
-        if onceTP
-            strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
-        else
+            //     trailPrice := tradeEntryPrice* (1 + tp3_percent)
+        // once TP
+        if onceTP 
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
+        else 
+            // Проверка на 0 ордера
             if tp1_percent_fix != 0 and (tp2_percent_fix != 0 or tp3_percent_fix != 0 or tp4_percent_fix != 0) 
-                strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp1_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=tradeTP1Size, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
             else if tp1_percent_fix != 0 and (tp2_percent_fix == 0 and tp3_percent_fix == 0 and tp4_percent_fix == 0)
-                strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp1_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss" )
+                strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
             
             if tp2_percent_fix != 0 and (tp3_percent_fix != 0 or tp4_percent_fix != 0)
-                strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp2_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
+                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=tradeTP2Size, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss")
             else if tp2_percent_fix != 0 and (tp3_percent_fix == 0 and tp4_percent_fix == 0)
-                strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp2_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss" )
+                strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss")
             
             if tp3_percent_fix != 0 and tp4_percent_fix != 0
-                strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=tp3_percent_fix * 100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
+                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=tradeTP3Size, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss")
             else if tp3_percent_fix != 0 and tp4_percent_fix == 0
-                strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp3_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss" )
-            
-            // if tp4_percent_fix != 0
-            //     strategy.exit("Short TP-4/Trail/SL", from_entry="Enter Short", stop = fixed_stop ? entryPrice* (1 + sl_percent) : fib_236, limit=entryPrice* (1 - tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-4", comment_loss = "Short: stoploss" )
-
+                strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss")
+         
 // Закомментировать
 // plot(canSignal ? 1.0 : 0)
 // plot(can_long ? 1.0 : 0)
 // plot(na(trade) ? 1.0 : 0)
-// plot(entryPrice)
+// plot(tradeEntryPrice)
 // plot(math.ceil(trailOffset))
 
 
@@ -1714,13 +1750,13 @@ varip bool hitTP3 = na
 // varip bool hitTP4 = na
 var bool hitSL = na
 varip bool canFill = na
-varip float corEntryPrice = na
+varip float cortradeEntryPrice = na
 
 // Creating lines
 if corShiftWait and canDrawCor != true and show_tp_enty_sl
     startBarIndexCor := bar_index
-    corEntryPrice := entryPrice
-    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? fib_382 : corEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? fib_618 : corEntryPrice * (1+ corShiftSize))
+    cortradeEntryPrice := tradeEntryPrice
+    priceCor := tradeSide == "LONG" ? (useCorShiftAuto ? fib_382 : cortradeEntryPrice * (1- corShiftSize)) : (useCorShiftAuto ? fib_618 : cortradeEntryPrice * (1+ corShiftSize))
     lineCor := useCorShift and useCorShiftAuto != true ? line.new(x1=startBarIndex, y1=priceCor, x2=bar_index, y2=priceCor, color=color.yellow, style = line.style_dotted, width = 2) : na
     canDrawCor := true
 
@@ -1734,34 +1770,32 @@ if canDraw
     canDraw := false
     startBarIndex := bar_index
 
-    priceSL  := tradeSide == "LONG" ?  (fixed_stop ? entryPrice* (1 - sl_percent) : fib_786) : (fixed_stop ? entryPrice* (1 + sl_percent) : fib_236)
-    priceTP1 := tradeSide == "LONG" ?  entryPrice* (1 + tp1_percent) : entryPrice* (1 - tp1_percent)
-    priceTP2 := tradeSide == "LONG" ?  entryPrice* (1 + tp2_percent) : entryPrice* (1 - tp2_percent)
-    priceTP3 := tradeSide == "LONG" ?  entryPrice* (1 + tp3_percent) : entryPrice* (1 - tp3_percent)
-    trailPrice := tradeSide == "LONG" ? entryPrice* (1 + trailStartPercent) : entryPrice* (1 - trailStartPercent) 
-    // priceTP4 := tradeSide == "LONG" ?  entryPrice* (1 + tp4_percent) : entryPrice* (1 - tp4_percent)
+    priceSL  := tradeSide == "LONG" ?  (fixed_stop ? tradeEntryPrice* (1 - sl_percent) : fib_786) : (fixed_stop ? tradeEntryPrice* (1 + sl_percent) : fib_236)
+    priceTP1 := tradeSide == "LONG" ?  tradeEntryPrice* (1 + tp1_percent) : tradeEntryPrice* (1 - tp1_percent)
+    priceTP2 := tradeSide == "LONG" ?  tradeEntryPrice* (1 + tp2_percent) : tradeEntryPrice* (1 - tp2_percent)
+    priceTP3 := tradeSide == "LONG" ?  tradeEntryPrice* (1 + tp3_percent) : tradeEntryPrice* (1 - tp3_percent)
+    trailPrice := tradeSide == "LONG" ? tradeEntryPrice* (1 + trailStartPercent) : tradeEntryPrice* (1 - trailStartPercent) 
+    // priceTP4 := tradeSide == "LONG" ?  tradeEntryPrice* (1 + tp4_percent) : tradeEntryPrice* (1 - tp4_percent)
 
 
     // Создаем линии 
     if show_tp_enty_sl
-        lineTrail := trailWithPercent ? line.new(x1=startBarIndex, y1=trailPrice, x2=bar_index, y2=trailPrice, color=color.blue, style = line.style_dotted, width = 2) : na
-        lineSL := line.new(x1=startBarIndex, y1=priceSL, x2=bar_index, y2=priceSL, color=color.red, style = line.style_dotted, width = 2)
-        lineTP1 := line.new(x1=startBarIndex, y1=priceTP1, x2=bar_index, y2=priceTP1, color=color.green, style = line.style_dotted, width = 2)
-        lineEntry  := line.new(x1=startBarIndex, y1=entryPrice, x2=bar_index, y2=entryPrice, color=color.gray, style = line.style_solid, width = 1)
+        lineTrail := trailWithPercent ? line.new(x1=startBarIndex, y1=tradeTrailPrice, x2=bar_index, y2=tradeTrailPrice, color=color.blue, style = line.style_dotted, width = 2) : na
+        lineSL := line.new(x1=startBarIndex, y1=tradeSL, x2=bar_index, y2=tradeSL, color=color.red, style = line.style_dotted, width = 2)
+        lineTP1 := line.new(x1=startBarIndex, y1=tradeTP1Limit, x2=bar_index, y2=tradeTP1Limit, color=color.green, style = line.style_dotted, width = 2)
+        lineEntry  := line.new(x1=startBarIndex, y1=tradeEntryPrice, x2=bar_index, y2=tradeEntryPrice, color=color.gray, style = line.style_solid, width = 1)
         if not onceTP
-            lineTP2 := line.new(x1=startBarIndex, y1=priceTP2, x2=bar_index, y2=priceTP2, color=color.green, style = line.style_dotted, width = 2)
-            lineTP3 := line.new(x1=startBarIndex, y1=priceTP3, x2=bar_index, y2=priceTP3, color=color.green, style = line.style_dotted, width = 2)
+            lineTP2 := line.new(x1=startBarIndex, y1=tradeTP2Limit, x2=bar_index, y2=tradeTP2Limit, color=color.green, style = line.style_dotted, width = 2)
+            lineTP3 := line.new(x1=startBarIndex, y1=tradeTP3Limit, x2=bar_index, y2=tradeTP3Limit, color=color.green, style = line.style_dotted, width = 2)
             // lineTP4 := line.new(x1=startBarIndex, y1=priceTP4, x2=bar_index, y2=priceTP4, color=color.green, style = line.style_dotted, width = 2)
 
 // Заливка
 if canFill
     // Рассчет тейков
-    hitTP1 := hitTP1 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp1_percent)) : low <= (entryPrice* (1 - tp1_percent)))
-    hitTP2 := hitTP2 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp2_percent)) : low <= (entryPrice* (1 - tp2_percent)))
-    hitTP3 := hitTP3 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp3_percent)) : low <= (entryPrice* (1 - tp3_percent)))
-    // hitTP4 := hitTP4 ? true : (tradeSide == "LONG" ? high >= (entryPrice* (1 + tp4_percent)) : low <= (entryPrice* (1 - tp4_percent)))
-    hitSL  := hitSL  ? true : (tradeSide == "LONG" ? low <= (fixed_stop ? entryPrice* (1 - sl_percent) : fib_786) : high >= (fixed_stop ? entryPrice* (1 + sl_percent) : fib_236))
-    
+    hitTP1 := hitTP1 ? true : (tradeSide == "LONG" ? high >= tradeTP1Limit : low <= tradeTP1Limit)
+    hitTP2 := hitTP2 ? true : (tradeSide == "LONG" ? high >= tradeTP2Limit : low <= tradeTP2Limit)
+    hitTP3 := hitTP3 ? true : (tradeSide == "LONG" ? high >= tradeTP3Limit : low <= tradeTP3Limit)
+    hitSL  := hitSL  ? true : (tradeSide == "LONG" ? low <= tradeSL : high >= tradeSL)
 
     if fill_positions
         if hitTP1
@@ -1786,26 +1820,26 @@ if canFill
 // Продолжаем рисовать
 if strategy.opentrades > 0 or (corShiftMode == "Don't move TP/SL" and corShiftWait)
     // Entry
-    line.set_xy1(lineEntry, startBarIndex, entryPrice)
-    line.set_xy2(lineEntry, bar_index + 1, entryPrice)
+    line.set_xy1(lineEntry, startBarIndex, tradeEntryPrice)
+    line.set_xy2(lineEntry, bar_index + 1, tradeEntryPrice)
     // Trail    
-    line.set_xy1(lineTrail, startBarIndex, trailPrice)
-    line.set_xy2(lineTrail, bar_index + 1, trailPrice)
+    line.set_xy1(lineTrail, startBarIndex, tradeTrailPrice)
+    line.set_xy2(lineTrail, bar_index + 1, tradeTrailPrice)
     // SL
-    line.set_xy1(lineSL, startBarIndex, priceSL)
-    line.set_xy2(lineSL, bar_index + 1, priceSL)
+    line.set_xy1(lineSL, startBarIndex, tradeSL)
+    line.set_xy2(lineSL, bar_index + 1, tradeSL)
     // Cor
     line.set_xy1(lineCor, startBarIndexCor, priceCor)
     line.set_xy2(lineCor, bar_index + 1, priceCor)
     // TP1
-    line.set_xy1(lineTP1, startBarIndex, priceTP1)
-    line.set_xy2(lineTP1, bar_index + 1, priceTP1)
+    line.set_xy1(lineTP1, startBarIndex, tradeTP1Limit)
+    line.set_xy2(lineTP1, bar_index + 1, tradeTP1Limit)
     // TP2
-    line.set_xy1(lineTP2, startBarIndex, priceTP2)
-    line.set_xy2(lineTP2, bar_index + 1, priceTP2)
+    line.set_xy1(lineTP2, startBarIndex, tradeTP2Limit)
+    line.set_xy2(lineTP2, bar_index + 1, tradeTP2Limit)
     // TP3
-    line.set_xy1(lineTP3, startBarIndex, priceTP3)
-    line.set_xy2(lineTP3, bar_index + 1, priceTP3)
+    line.set_xy1(lineTP3, startBarIndex, tradeTP3Limit)
+    line.set_xy2(lineTP3, bar_index + 1, tradeTP3Limit)
     // TP4
     // line.set_xy1(lineTP4, startBarIndex, priceTP4)
     // line.set_xy2(lineTP4, bar_index + 1, priceTP4)
@@ -1822,7 +1856,7 @@ if canDraw
     trade := Trade.new()
     // trade.side := can_long ? "LONG" : "SHORT"
     trade.side := tradeSide
-    trade.entry_price := entryPrice
+    trade.entry_price := tradeEntryPrice
     trade.entry_hit := true
     trade.sl_price := math.round_to_mintick(tradeSide == "LONG" ? fixed_stop ? trade.entry_price * (1 - sl_percent) : fib_786 * (1 - sl_percent) : fixed_stop ? trade.entry_price * (1 + sl_percent) : fib_236 * (1 + sl_percent))
     trade.tp1_price := math.round_to_mintick(tradeSide == "LONG" ? trade.entry_price * (1 + tp1_percent) : trade.entry_price * (1 - tp1_percent))
@@ -1932,7 +1966,7 @@ if show_strategy_panel
     table.cell(strategy_table, 2, 1, posMode, bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 6, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 2, "Length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 2, str.tostring(autoLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 3, "Higher TF:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 1, 3, "TF for liquidity:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 3, str.tostring(higherTimeframe) + "m", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 4, "Market structure shift length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 14, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 4, str.tostring(mssOffset), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
@@ -1944,99 +1978,66 @@ if show_strategy_panel
     // table.cell(strategy_table, 2, 7, str.tostring(entryMethod), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 1, 6, "Time:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 2, 6, str.format_time(start_date_input, "yyyy-MM-dd HH:mm"), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 7, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 7, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)  
-    table.cell(strategy_table, 1, 8, "Only 1 TP:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 8, str.tostring(onceTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)  
-    table.cell(strategy_table, 1, 9, "TP-1:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 9, str.tostring(tp1_percent * 100) + "%" + " (" + str.tostring(tp1_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 10, "TP-2:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 10, str.tostring(tp2_percent * 100) + "%" + " (" + str.tostring(tp2_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 11, "TP-3:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 11, str.tostring(tp3_percent * 100) + "%" + " (" + str.tostring(tp3_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    // table.cell(strategy_table, 1, 7, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    // table.cell(strategy_table, 2, 7, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)  
+    table.cell(strategy_table, 1, 7, "Only 1 TP:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 7, str.tostring(onceTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)  
+    table.cell(strategy_table, 1, 8, "TP-1:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 8, str.tostring(tp1_percent * 100) + "%" + " (" + str.tostring(tp1_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 9, "TP-2:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 9, str.tostring(tp2_percent * 100) + "%" + " (" + str.tostring(tp2_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 10, "TP-3:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 10, str.tostring(tp3_percent * 100) + "%" + " (" + str.tostring(tp3_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 1, 9, "TP-4:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 2, 9, str.tostring(tp4_percent * 100) + "%" + " (" + str.tostring(tp4_percent_fix * 100) + "%)", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     // table.cell(strategy_table, 1, 9, "Fixed stoploss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     // table.cell(strategy_table, 2, 9, str.tostring(fixed_stop), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 12, "Stoploss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 12, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 13, "Trailing %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 13, str.tostring(trailPercent) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 14, "TP-num for trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 14, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 1, 15, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 2, 15, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 11, "Stoploss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 11, str.tostring(sl_percent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 12, "Trailing %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 12, str.tostring(trailPercent) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 13, "TP-num for trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 4, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 13, str.tostring(trailTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 14, "Trail after % of price:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 14, str.tostring(trailWithPercent), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 15, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 15, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 1, 16, "Use auto TP/SL/Trail by ATR:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 2, 16, str.tostring(atrAutoActive), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 17, "ATR length (bars):", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 17, str.tostring(atrLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
     
-    table.cell(strategy_table, 3, 1, "% for trail start:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 1, str.tostring(trailStartPercent * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 2, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 2, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 3, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 3, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 4, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 4, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)   
-    table.cell(strategy_table, 3, 5, "Auto cor. shift size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 5, str.tostring(useCorShiftAuto), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 6, "Fibo length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 6, str.tostring(sensitivity), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 7, "Use limit of bars:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 7, str.tostring(useCorShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
-    table.cell(strategy_table, 3, 8, "Amount of bars:", bgcolor  = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 8, str.tostring(corShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 9, 'Use vol."Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 9, str.tostring(useVolAnomaly), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
-    table.cell(strategy_table, 3, 10, 'Reverse vol. "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 10, str.tostring(volAnomalyReverse), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 11, 'Multiplier for "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 11, str.tostring(volAnomalyMult), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 12, 'SMA length "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 12, str.tostring(volAnomalySMALen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 13, 'Use vol. "VWAP"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 13, str.tostring(useVolVWAP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
-    // table.cell(strategy_table, 3, 10, "Use EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 10, str.tostring(useEMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 11, "Short-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 11, str.tostring(fastLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 12, "Middle-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 12, str.tostring(slowLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 13, "Use long-term EMA:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 13, str.tostring(use3EMA), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 14, "Long-term length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 14, str.tostring(longLength), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 15, "Use RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 15, str.tostring(useRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 16, "Mode for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 16, str.tostring(modeRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.small)
-    // table.cell(strategy_table, 3, 17, "RSI-overbought:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 17, str.tostring(overbought), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 18, "RSI-oversold:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 18, str.tostring(oversold), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 19, "RSI-length:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 19, str.tostring(len), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 18, "Use additional TF for RSI:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 18, str.tostring(useTFRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 19, "Length (bars) for add-l RSI TF:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 19, str.tostring(TFRSILen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 20, "Additional RSI TF (minutes):", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 20, str.tostring(TFRSI), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 19, "Stop on max drawdown:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 19, str.tostring(useMaxDrawdown), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 20, "Max drawdown %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 20, str.tostring(maxDrawdown) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 21, "Stop on max depo loss:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 21, str.tostring(useMaxDepoLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 22, "Max depo loss %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 22, str.tostring(maxDepoLoss) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 14, "Stop on max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 14, str.tostring(useMaxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 15, "Max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 14, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 15, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 3, 18, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 18, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-
-
-
-    // table.cell(strategy_table, 3, 16, "Fill position:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 4, 16, str.tostring(fill_positions), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    // table.cell(strategy_table, 1, 16, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
-    // table.cell(strategy_table, 2, 16, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 1, "Multiplier for TP:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 1, str.tostring(atrMultTP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 2, "Multiplier for Trail:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 2, str.tostring(atrMultTrail), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 3, "Multiplier for SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 3, str.tostring(atrMultSL), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 4, "Use cor. shift:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 4, str.tostring(useCorShift), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 5, "Move or not TP/SL:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 5, str.tostring(corShiftMode), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 6, "Cor. shift size %:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 6, str.tostring(corShiftSize * 100) + "%", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)   
+    table.cell(strategy_table, 3, 7, "Auto cor. shift size:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 7, str.tostring(useCorShiftAuto), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 8, "Fibo length for auto:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 8, str.tostring(sensitivity), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 9, "Use limit of bars:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 9, str.tostring(useCorShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 10, "Amount of bars:", bgcolor  = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 10, str.tostring(corShiftBars), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 11, 'Use vol."Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 11, str.tostring(useVolAnomaly), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 12, 'Reverse vol. "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 12, str.tostring(volAnomalyReverse), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 13, 'Multiplier for "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 13, str.tostring(volAnomalyMult), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 14, 'SMA length "Anomaly"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 14, str.tostring(volAnomalySMALen), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 15, 'Use vol. "VWAP"', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 15, str.tostring(useVolVWAP), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)    
+    table.cell(strategy_table, 3, 16, "Stop on max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 16, str.tostring(useMaxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+    table.cell(strategy_table, 3, 17, "Max loss trades in a row:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 14, height = 3, text_size = size.normal, text_halign = text.align_left)
+    table.cell(strategy_table, 4, 17, str.tostring(maxRowLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
