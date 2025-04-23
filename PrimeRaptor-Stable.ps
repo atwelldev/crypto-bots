@@ -1148,7 +1148,7 @@ if (canLongNew and na(trade) and canSignal and strDirection != "only short" and 
         // tradeEntryPrice := close
         tradeTP1Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP) : tradeEntryPrice* (1 + tp1_percent)
         tradeTP1Size := tp1_percent_fix * 100
-        tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2_percent_fix)
+        tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2_percent)
         tradeTP2Size := tp2_percent_fix * 100
         tradeTP3Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 + tp3_percent)
         tradeTP3Size := tp3_percent_fix * 100
@@ -1164,7 +1164,7 @@ if (canLongNew and na(trade) and canSignal and strDirection != "only short" and 
             else if trailTP == 2
                 tradeTrailPrice := tradeTP2Limit
             // else if trailTP == 3
-            //     trailPrice := tradeEntryPrice* (1 + tp3_percent)
+                // trailPrice := tradeEntryPrice* (1 + tp3_percent)
         // once TP
         if onceTP 
             strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
@@ -1211,7 +1211,7 @@ if (canShortNew and na(trade) and canSignal and strDirection != "only long" and 
         canSignal := false
         tradeTP1Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP) : tradeEntryPrice* (1 - tp1_percent)
         tradeTP1Size := tp1_percent_fix * 100
-        tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2_percent_fix)
+        tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2_percent)
         tradeTP2Size := tp2_percent_fix * 100
         tradeTP3Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 - tp3_percent)
         tradeTP3Size := tp3_percent_fix * 100
