@@ -653,15 +653,23 @@ var bool IS_LONG = cfg_strategy_type == 'long'
 float cfg_base_order_size_usd               = input.float(title='Base order size', defval=1000, step=1000, group='Strategy settings')
 float cfg_safety_order_size_usd             = input.float(title='Safety order size', defval=700, step=100, group='Strategy settings')
 
-cfg_take_profit_type                        = input.string(title='Take Profit Type', defval='% From total volume', options=['% From base order', '% From total volume'], group='Strategy settings')
-float cfg_take_profit_perc                  = input.float(title='Take Profit (%)', minval=0.0, step=0.1, defval=2, group='Strategy settings')
+// 
+// cfg_take_profit_type                        = input.string(title='Take Profit Type', defval='% From total volume', options=['% From base order', '% From total volume'], group='Strategy settings')
+cfg_take_profit_type = '% From total volume'
+// float cfg_take_profit_perc                  = input.float(title='Take Profit (%)', minval=0.0, step=0.1, defval=2, group='Strategy settings')
+float cfg_take_profit_perc = 2
 
-
-bool cfg_enable_stop_loss                   = input.bool(title='Enable Stop Loss', defval=false, group='Strategy settings')
-float cfg_stop_loss_perc                    = input.float(title='Stop Loss (%)', minval=0.0, step=0.1, defval=20, group='Strategy settings')
-float cfg_max_safety_orders                 = input.float(title='Max Safety Trades Count', defval=5, group='Strategy settings')
-float cfg_safety_order_price_deviation_perc = input.float(title='Price Deviation To Open Safety Trades (%)', minval=0.0, step=0.1, defval=3, group='Strategy settings')
-float cfg_safety_order_volume_scale         = input.float(title='Safety Order Volume Scale', defval=1, step=0.1, group='Strategy settings')
+// bool cfg_enable_stop_loss                   = input.bool(title='Enable Stop Loss', defval=false, group='Strategy settings')
+bool cfg_enable_stop_loss = false
+// float cfg_stop_loss_perc                    = input.float(title='Stop Loss (%)', minval=0.0, step=0.1, defval=20, group='Strategy settings')
+float cfg_stop_loss_perc = 20
+// float cfg_max_safety_orders                 = input.float(title='Max Safety Trades Count', defval=5, group='Strategy settings')
+float cfg_max_safety_orders = 5
+// float cfg_safety_order_price_deviation_perc = input.float(title='Price Deviation To Open Safety Trades (%)', minval=0.0, step=0.1, defval=3, group='Strategy settings')
+float cfg_safety_order_price_deviation_perc = 3
+// float cfg_safety_order_volume_scale         = input.float(title='Safety Order Volume Scale', defval=1, step=0.1, group='Strategy settings')
+float cfg_safety_order_volume_scale = 1
+// 
 float cfg_safety_order_price_step_scale     = input.float(title='Safety Order Step Scale', defval=1, step=0.1, group='Strategy settings')
 
 int cfg_planb_timeout                       = input.int(title='PLAN-B Timeout', defval=1, step=1, group='PLAN-B', tooltip='Timeout to activate PLAN-B. Use \'none\' in the dropdown below to disable PLAN-B')
