@@ -653,6 +653,7 @@ var bool IS_LONG = cfg_strategy_type == 'long'
 float cfg_base_order_size_usd               = input.float(title='Base order size', defval=1000, step=1000, group='Strategy settings')
 float cfg_safety_order_size_usd             = input.float(title='Safety order size', defval=700, step=100, group='Strategy settings')
 
+
 cfg_take_profit_type                        = input.string(title='Take Profit Type', defval='% From total volume', options=['% From base order', '% From total volume'], group='Strategy settings')
 float cfg_take_profit_perc                  = input.float(title='Take Profit (%)', minval=0.0, step=0.1, defval=2, group='Strategy settings')
 
@@ -664,10 +665,10 @@ float cfg_safety_order_price_deviation_perc = input.float(title='Price Deviation
 float cfg_safety_order_volume_scale         = input.float(title='Safety Order Volume Scale', defval=1, step=0.1, group='Strategy settings')
 float cfg_safety_order_price_step_scale     = input.float(title='Safety Order Step Scale', defval=1, step=0.1, group='Strategy settings')
 
-int cfg_planb_timeout                       = input.int(title='PLAN-B Timeout', defval=1, step=1, group='PLAN-B', tooltip='Timeout to activate PLAN-B. Use \'none\' in the dropdown below to disable PLAN-B')
-cfg_planb_timeout_type                      = input.string(title='', defval='none', options=['none', 'min', 'hour', 'day'], group='PLAN-B')
-cfg_planb_action                            = input.string(title='PLAN-B Action', defval='none', options=['none', 'paint only', 'close deal'], group='PLAN-B')
-float cfg_planb_take_profit                 = input.float(title='PLAN-B Close Deal (%) ', defval=0.5, step=0.1, group='PLAN-B', tooltip='Alternative % from total volume (versus position_avg_size) to use when PLAN-B is activated.\nIt is either a positive % for alternative TP or a negative % for alternative SL')
+int cfg_planb_timeout = 1//                       = input.int(title='PLAN-B Timeout', defval=1, step=1, group='PLAN-B', tooltip='Timeout to activate PLAN-B. Use \'none\' in the dropdown below to disable PLAN-B')
+cfg_planb_timeout_type  = 'none'//                    = input.string(title='', defval='none', options=['none', 'min', 'hour', 'day'], group='PLAN-B')
+cfg_planb_action         = 'none'      //             = input.string(title='PLAN-B Action', defval='none', options=['none', 'paint only', 'close deal'], group='PLAN-B')
+float cfg_planb_take_profit     =0.5//            = input.float(title='PLAN-B Close Deal (%) ', defval=0.5, step=0.1, group='PLAN-B', tooltip='Alternative % from total volume (versus position_avg_size) to use when PLAN-B is activated.\nIt is either a positive % for alternative TP or a negative % for alternative SL')
 
 get_planb_timeout() =>
     float _timeout = 0
@@ -682,27 +683,27 @@ get_planb_timeout() =>
 var float glb_planb_timeout = get_planb_timeout()
 
 string _tooltip_bot_control     = 'If this is enabled the strategy can control some bot operations via Webhook calls.\n\nTo enable Webhook calls, check this option, complete Bot id and Email Token. After the strategy is configured, create an alert on the strategy, select Order fills only, and in the message field simply input {{strategy.order.alert_message}}.'
-bool cfg_enable_bot_control     = input.bool(title='Enable Bot Control Via Webhook', defval=false, group='3commas Bot Settings', tooltip=_tooltip_bot_control)
-string cfg_bot_id               = input.string(title='Bot id', defval='', group='3commas Bot Settings')
-string cfg_email_token          = input.string(title='Email token', defval='', group='3commas Bot Settings')
-bool cfg_exec_deal_start        = input.bool(title='Deal start', defval=true, group='3commas Bot Settings')
-bool cfg_exec_safety_order      = input.bool(title='Safety Orders', defval=true, group='3commas Bot Settings', 
- tooltip="The strategy will send a message to add funds in the quote currency (for BTCUSDT quote is USDT). The amount of funds are calculated based on SO settings (size, volume steps). For exact values use the steps table.")
-bool cfg_exec_take_profit       = input.bool(title='Take profit deal stop', defval=true, group='3commas Bot Settings')
-bool cfg_exec_external_indicator= input.bool(title='External indicator deal stop', defval=true, group='3commas Bot Settings')
-bool cfg_exec_stop_loss         = input.bool(title='Stop Loss', defval=true, group='3commas Bot Settings')
-bool cfg_exec_planb_timeout     = input.bool(title='PLAN-B', defval=true, group='3commas Bot Settings')
+bool cfg_enable_bot_control    =false// = input.bool(title='Enable Bot Control Via Webhook', defval=false, group='3commas Bot Settings', tooltip=_tooltip_bot_control)
+string cfg_bot_id            =''//   = input.string(title='Bot id', defval='', group='3commas Bot Settings')
+string cfg_email_token         =''// = input.string(title='Email token', defval='', group='3commas Bot Settings')
+bool cfg_exec_deal_start       =true// = input.bool(title='Deal start', defval=true, group='3commas Bot Settings')
+bool cfg_exec_safety_order  = true//    = input.bool(title='Safety Orders', defval=true, group='3commas Bot Settings', 
+//  tooltip="The strategy will send a message to add funds in the quote currency (for BTCUSDT quote is USDT). The amount of funds are calculated based on SO settings (size, volume steps). For exact values use the steps table.")
+bool cfg_exec_take_profit      =true // = input.bool(title='Take profit deal stop', defval=true, group='3commas Bot Settings')
+bool cfg_exec_external_indicator =true //= input.bool(title='External indicator deal stop', defval=true, group='3commas Bot Settings')
+bool cfg_exec_stop_loss         = true //= input.bool(title='Stop Loss', defval=true, group='3commas Bot Settings')
+bool cfg_exec_planb_timeout     =true //= input.bool(title='PLAN-B', defval=true, group='3commas Bot Settings')
 
-float cfg_commision_percent = input.float(title='Commision (%)', minval=0.0, step=0.001, defval=0.075, group='Broker')
+float cfg_commision_percent=  0.075//= input.float(title='Commision (%)', minval=0.0, step=0.001, defval=0.075, group='Broker')
 
 //visuals
-int cfg_decimals            = input.int(title='Decimals For Display', defval=2, group='Visuals')
+int cfg_decimals          =2//  = input.int(title='Decimals For Display', defval=2, group='Visuals')
 
-bool cfg_show_pnl_labels    = input.bool(title='Show PnL Labels', defval=true, group='Visuals')
-bool cfg_show_stats_table   = input.bool(title='Show Table With Statistics', defval=true, group='Visuals')
-bool cfg_show_settings_table= input.bool(title='Show Table With Strategy Settings', defval=false, group='Visuals')
-bool cfg_show_step_table    = input.bool(title='Show Table With Steps Similar To 3commas', defval=false, group='Visuals', tooltip='Make sure the Table with Strategy Settings is disabled because they use the same position\n\nIf the Safety orders type is not percentage all significant values will be replaced by - (dashes)')
-float cfg_steps_bo_price    = input.float(title='BO Entry Price For Steps Table', defval=0, group='Visuals', tooltip="Custom BO price used to calculate all table values. If this is not configured, the close value will be used")
+bool cfg_show_pnl_labels    =true //= input.bool(title='Show PnL Labels', defval=true, group='Visuals')
+bool cfg_show_stats_table   =true//= input.bool(title='Show Table With Statistics', defval=true, group='Visuals')
+bool cfg_show_settings_table =false //= input.bool(title='Show Table With Strategy Settings', defval=false, group='Visuals')
+bool cfg_show_step_table    =false//= input.bool(title='Show Table With Steps Similar To 3commas', defval=false, group='Visuals', tooltip='Make sure the Table with Strategy Settings is disabled because they use the same position\n\nIf the Safety orders type is not percentage all significant values will be replaced by - (dashes)')
+float cfg_steps_bo_price    =0//= input.float(title='BO Entry Price For Steps Table', defval=0, group='Visuals', tooltip="Custom BO price used to calculate all table values. If this is not configured, the close value will be used")
 
 
 // How many safety orders were placed in current trade
