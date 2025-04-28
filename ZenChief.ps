@@ -703,7 +703,7 @@ bool cfg_show_pnl_labels    =true //= input.bool(title='Show PnL Labels', defval
 bool cfg_show_stats_table   =true//= input.bool(title='Show Table With Statistics', defval=true, group='Visuals')
 bool cfg_show_settings_table =false //= input.bool(title='Show Table With Strategy Settings', defval=false, group='Visuals')
 bool cfg_show_step_table    =false//= input.bool(title='Show Table With Steps Similar To 3commas', defval=false, group='Visuals', tooltip='Make sure the Table with Strategy Settings is disabled because they use the same position\n\nIf the Safety orders type is not percentage all significant values will be replaced by - (dashes)')
-float cfg_steps_bo_price    =0//= input.float(title='BO Entry Price For Steps Table', defval=0, group='Visuals', tooltip="Custom BO price used to calculate all table values. If this is not configured, the close value will be used")
+float cfg_steps_bo_price    = input.float(title='BO Entry Price For Steps Table', defval=0, group='Visuals', tooltip="Custom BO price used to calculate all table values. If this is not configured, the close value will be used")
 
 
 // How many safety orders were placed in current trade
