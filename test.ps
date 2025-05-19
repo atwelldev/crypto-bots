@@ -485,32 +485,32 @@ basisType = input.string(defval='ALMA', title='MA Type: ', options=['TEMA', 'Hul
 basisLen = input.int(defval=2, title='MA Period', minval=1)
 offsetSigma = input.int(defval=5, title='Offset for LSMA / Sigma for ALMA', minval=0)
 offsetALMA = input.float(defval=0.85, title='Offset for ALMA', minval=0, step=0.01)
-scolor = input(true, title='Show coloured Bars to indicate Trend?')
-delayOffset = input.int(defval=0, title='Delay Open/Close MA (Forces Non-Repainting)', minval=0, step=1)
-tradeType = input.string('BOTH', title='What trades should be taken : ', options=['LONG', 'SHORT', 'BOTH', 'NONE'])
+scolor = true // input(true, title='Show coloured Bars to indicate Trend?')
+delayOffset = 0 //input.int(defval=0, title='Delay Open/Close MA (Forces Non-Repainting)', minval=0, step=1)
+tradeType = 'BOTH' //input.string('BOTH', title='What trades should be taken : ', options=['LONG', 'SHORT', 'BOTH', 'NONE'])
 // === /INPUTS ===
-h = input(false, title='Signals for Heikin Ashi Candles')
+h = false //input(false, title='Signals for Heikin Ashi Candles')
 src = h ? request.security(ticker.heikinashi(syminfo.tickerid), timeframe.period, close, lookahead=barmerge.lookahead_off) : close
 //      INDICATOR SETTINGS
-swing_length = input.int(10, title = 'Swing High/Low Length', group = 'Settings', minval = 1, maxval = 50)
-history_of_demand_to_keep = input.int(20, title = 'History To Keep', minval = 5, maxval = 50)
-box_width = input.float(2.5, title = 'Supply/Demand Box Width', group = 'Settings', minval = 1, maxval = 10, step = 0.5)
+swing_length = 10 //input.int(10, title = 'Swing High/Low Length', group = 'Settings', minval = 1, maxval = 50)
+history_of_demand_to_keep = 20 //input.int(20, title = 'History To Keep', minval = 5, maxval = 50)
+box_width = 2.5 //input.float(2.5, title = 'Supply/Demand Box Width', group = 'Settings', minval = 1, maxval = 10, step = 0.5)
 
 //      INDICATOR VISUAL SETTINGS
-show_zigzag = input.bool(false, title = 'Show Zig Zag', group = 'Visual Settings', inline = '1')
-show_price_action_labels = input.bool(false, title = 'Show Price Action Labels', group = 'Visual Settings', inline = '2')
+show_zigzag = false // input.bool(false, title = 'Show Zig Zag', group = 'Visual Settings', inline = '1')
+show_price_action_labels = false // input.bool(false, title = 'Show Price Action Labels', group = 'Visual Settings', inline = '2')
 
-supply_color = input.color(color.new(#EDEDED,70), title = 'Supply', group = 'Visual Settings', inline = '3')
-supply_outline_color = input.color(color.new(color.white,75), title = 'Outline', group = 'Visual Settings', inline = '3')
+supply_color = color.new(#EDEDED,70) //input.color(color.new(#EDEDED,70), title = 'Supply', group = 'Visual Settings', inline = '3')
+supply_outline_color = color.new(color.white,75) // input.color(color.new(color.white,75), title = 'Outline', group = 'Visual Settings', inline = '3')
 
-demand_color = input.color(color.new(#00FFFF,70), title = 'Demand', group = 'Visual Settings', inline = '4')
-demand_outline_color = input.color(color.new(color.white,75), title = 'Outline', group = 'Visual Settings', inline = '4')
+demand_color = color.new(#00FFFF,70) //input.color(color.new(#00FFFF,70), title = 'Demand', group = 'Visual Settings', inline = '4')
+demand_outline_color = color.new(color.white,75) //input.color(color.new(color.white,75), title = 'Outline', group = 'Visual Settings', inline = '4')
 
-bos_label_color = input.color(color.white, title = 'BOS Label', group = 'Visual Settings', inline = '5')
-poi_label_color = input.color(color.white, title = 'POI Label', group = 'Visual Settings', inline = '7')
+bos_label_color = color.white //input.color(color.white, title = 'BOS Label', group = 'Visual Settings', inline = '5')
+poi_label_color = color.white //input.color(color.white, title = 'POI Label', group = 'Visual Settings', inline = '7')
 
-swing_type_color = input.color(color.black, title = 'Price Action Label', group = 'Visual Settings', inline = '8')
-zigzag_color = input.color(color.new(#000000,0), title = 'Zig Zag', group = 'Visual Settings', inline = '9')
+swing_type_color = color.black // input.color(color.black, title = 'Price Action Label', group = 'Visual Settings', inline = '8')
+zigzag_color = color.new(#000000,0) //input.color(color.new(#000000,0), title = 'Zig Zag', group = 'Visual Settings', inline = '9')
 
 //
 //END SETTINGS
