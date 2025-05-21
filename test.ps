@@ -402,15 +402,15 @@ useCorShiftBars = input.bool(defval = false, title = "Use limit of bars", group 
 corShiftBars = input.int(defval = 1, title = "Amount of bars", group = "CORRECTIVE SHIFT", step = 1, minval = 1)
 
 // VOLUMES
-useVolAnomaly = false//input.bool(defval = false, title='Use volume filter: "Anomaly"', group = "VOLUMES")
-volAnomalyReverse = false//input.bool(defval = false, title='Reverse volume "Anomaly"', group = "VOLUMES", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
-volAnomalyMult = 2.0//input.float(defval = 2.0, step = 0.05, title='Volume multiplier for "Anomaly"', group = "VOLUMES")
-volAnomalySMALen = 20//input.int(defval = 20, step = 1, title='SMA length for "Anomaly"', group = "VOLUMES")
+useVolAnomaly = input.bool(defval = false, title='Use volume filter: "Anomaly"', group = "VOLUMES")
+volAnomalyReverse = input.bool(defval = false, title='Reverse volume "Anomaly"', group = "VOLUMES", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
+volAnomalyMult = input.float(defval = 2.0, step = 0.05, title='Volume multiplier for "Anomaly"', group = "VOLUMES")
+volAnomalySMALen = input.int(defval = 20, step = 1, title='SMA length for "Anomaly"', group = "VOLUMES")
 
 // useVolOBV = input.bool(defval = false, title='Use volume filter: "OBV"', group = "VOLUMES")
 // volOBVLen = input.int(defval = 2, step = 1, title='Length for "OBV"', group = "VOLUMES")
 
-useVolVWAP = false// input.bool(defval = false, title='Use volume filter: "VWAP"', group = "VOLUMES")
+useVolVWAP =  input.bool(defval = false, title='Use volume filter: "VWAP"', group = "VOLUMES")
 
 
 // EMA
@@ -1485,7 +1485,7 @@ if atrAutoActive
 
 
 // Entries
-if (buy and canSignal and strDirection != "only short") or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
+if (buy and canSignal and strDirection != "only short" and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPLong)) or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
     tradeSide := "LONG"
     canDrawCor := false
     
@@ -1558,7 +1558,7 @@ if (buy and canSignal and strDirection != "only short") or (tradeSide == "LONG" 
             // if tp4_percent_fix != 0
             //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? tradeEntryPrice* (1 - sl_percent) : fib_786, limit=tradeEntryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
-if (sell and canSignal and strDirection != "only long") or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
+if (sell and canSignal and strDirection != "only long" and (useVolAnomaly == false or volAnomaly) and (useVolVWAP == false or volVWAPShort)) or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
     tradeSide := "SHORT"
     canDrawCor := false
     if useCorShift and corShiftShort == false
