@@ -1,4 +1,4 @@
-strategy(title='CHIEF-SAIYAN v0.1.0-Alpha', overlay=true, pyramiding=0, default_qty_type=strategy.percent_of_equity, default_qty_value=10, calc_on_every_tick=false)
+strategy(title='ATLANT-SMR v0.1.0-Alpha', overlay=true, pyramiding=0, default_qty_type=strategy.percent_of_equity, default_qty_value=10, calc_on_every_tick=false)
 
 
 
@@ -1368,7 +1368,7 @@ if time < start_date_input
 
 
 if strategy.opentrades > 0
-    canSignal := true
+    canSignal := false
 else 
     strategy.cancel_all()
     canSignal := true
@@ -1485,7 +1485,7 @@ if atrAutoActive
 
 
 // Entries
-if (buy and strDirection != "only short") or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
+if (buy and canSignal and strDirection != "only short") or (tradeSide == "LONG" and corShiftLong and corShiftShort == false)
     tradeSide := "LONG"
     canDrawCor := false
     
@@ -1558,7 +1558,7 @@ if (buy and strDirection != "only short") or (tradeSide == "LONG" and corShiftLo
             // if tp4_percent_fix != 0
             //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? tradeEntryPrice* (1 - sl_percent) : fib_786, limit=tradeEntryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
-if (sell and strDirection != "only long") or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
+if (sell and canSignal and strDirection != "only long") or (tradeSide == "SHORT" and corShiftShort and corShiftLong == false)
     tradeSide := "SHORT"
     canDrawCor := false
     if useCorShift and corShiftShort == false
