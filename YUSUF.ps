@@ -1,0 +1,324 @@
+
+
+// STELLAR ==================================================================================
+
+
+//@version=6
+strategy(title='YUSUF v0.1.0', shorttitle='YUSUF v0.1.0', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 5000)
+
+// Inputs
+// GENERAL
+tradingMode = input.string(title = "Trading mode", options = ["auto", "flat", "trend"], defval = "auto", group = "GENERAL")
+signalMode = input.string(title = "Entry mode (directions)", options = ["long/short","only long","only short"], defval = "long/short", group = "GENERAL", tooltip = "en: Available directions of position\n\nru: Доступные направления позиции")
+calcDate = input.time(defval = timestamp("12 June 2024"), title = "Calculating date", group = "GENERAL", tooltip = "en: If 'Use max profit' or 'Use max drawdown' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны 'Use max profit' или 'Use max drawdown', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+
+// TP/SL/Trail
+tpOnceActive = input.bool(title="Use only 1 takeprofit (TP-1)", defval=false, group = "TP/SL/Trail",  tooltip = "en: 1 TP will close the position completely, 'Size (%)' will not affect\n\nru: Первый тейкпрофит закроет позицию полностью, 'Size (%)' не возымеет эффекта")
+tp1Break = input.float(title="TP-1 price", step = 0.05, defval=1, minval = 0, group = "TP/SL/Trail", inline = "2.2") / 100
+tp1QTY = input.float(title = "TP-1 size (%)", step = 5, defval=30, group = "TP/SL/Trail", inline = "2.2") / 100
+tp2Break = input.float(title="TP-2 price", step = 0.05, defval=2, minval = 0, group = "TP/SL/Trail", inline = "2.3") / 100
+tp2QTY = input.float(title = "TP-2 size (%)", step = 5, defval=30, group = "TP/SL/Trail", inline = "2.3") / 100
+tp3Break = input.float(title="TP-3 price", step = 0.05, defval=3, minval = 0, group = "TP/SL/Trail", inline = "2.4") / 100
+tp3QTY = input.float(title = "TP-3 size (%)", step = 5, defval=40, group = "TP/SL/Trail", inline = "2.4") / 100
+tp4Break = input.float(title="TP-4 price", step = 0.05, defval=4, minval = 0, group = "TP/SL/Trail", inline = "2.5") / 100
+tp4QTY = input.float(title = "TP-4 size (%)", step = 5, defval=10, group = "TP/SL/Trail", inline = "2.5") / 100
+trailBreak = input.float(title="Trail price (%)", step = 0.05, defval=0.5, minval = 0.00001, group = "TP/SL/Trail", inline = "2.6") / 100
+trailSize = input.float(title="Trail size (%)", step = 0.05, defval = 0.1, group = "TP/SL/Trail", inline = "2.6") / 100
+slBreak = input.float(title="Stoploss price (%)", step = 0.1, defval=0.3, group = "TP/SL/Trail") / 100
+atrAutoActive = input.bool(title = "Use auto TP/SL/Trail by ATR", group = "TP/SL/Trail", defval = false)
+atrLength = input.int(defval = 14, step = 1, title='ATR length (bars)', group = "TP/SL/Trail")
+atrMultTP = input.float(defval = 2.0, step = 0.1, title='Multiplier for TP', group = "TP/SL/Trail")
+atrMultTrail = input.float(defval = 1.0, step = 0.1, title='Multiplier for Trail', group = "TP/SL/Trail")
+atrMultSL = input.float(defval = 1.0, step = 0.1, title='Multiplier for SL', group = "TP/SL/Trail")
+
+// INFO PANEL
+panelStratActive = input.bool(defval = true, title = "Show settings panel", group = "INFO")
+linesPosActive = input.bool(defval = true, title = "Show position lines", group = "INFO")
+
+// Variables
+    // position
+var bool signalActive = true
+var bool signalTrendShort = false
+var bool signalTrendLong = false
+var bool signalFlatShort = false
+var bool signalFlatLong = false
+var string marketState = ""
+var string tradeSide = ""
+var float tradeEntryPrice = 0
+var float tradeTP1Limit = 0
+var float tradeTP2Limit = 0
+var float tradeTP3Limit = 0
+var float tradeTP4Limit = 0
+var float tradeTP1Size = 0
+var float tradeTP2Size = 0
+var float tradeTP3Size = 0
+var float tradeTP4Size = 0
+var float tradeSL = 0
+var float tradeTrailPrice = 0
+    // ATR
+var float atrVal = 0
+
+    // drawing
+var bool drawActive = false
+var bool fillActive = false
+var line lineTP1 = na
+var line lineTP2 = na
+var line lineTP3 = na
+var line lineTP4 = na
+var line lineSL = na
+var line lineTrail = na
+var line lineEntry = na
+var int barIndexStart = na
+var float tradeTP1 = na
+var float tradeTP2 = na
+var float tradeTP3 = na
+var float tradeTP4 = na
+var float priceSL = na
+var bool hitTP1 = false
+var bool hitTP2 = false
+var bool hitTP3 = false
+var bool hitTP4 = false
+var bool hitSL = false
+var bool hitTrail = false
+    // panels
+var table panelStratTable = na
+
+
+// YUSUF
+//@version=6
+
+// === GİRİŞLER (Senin Test Ettiğin Ayarlar Sabitlendi) ===
+length         = input.int(180, "Kanal Derinliği (Geniş Bakış)")
+adxThreshold   = input.int(25, "Trend Gücü (ADX Filtresi)")
+volMultiplier  = input.float(1.7, "Hacim Eşiği")
+atrMult        = input.float(0.2, "Kırılım Hassasiyeti (ATR)")
+
+// === G-CHANNEL HESAPLAMA ===
+var float a = na
+var float b = na
+src = hl2 
+
+a := math.max(src, na(a[1]) ? src : a[1]) - nz(a[1] - b[1]) / length
+b := math.min(src, na(b[1]) ? src : b[1]) + nz(a[1] - b[1]) / length
+avg = math.avg(a, b)
+
+// === GELİŞMİŞ SÜZGEÇLER (ÇUVALLAMAYI ÖNLEYEN ZEKÂ) ===
+
+// 1. ADX Filtresi: Trend 25'in altındaysa piyasa "testere"dir, girme.
+[plus, minus, adx] = ta.dmi(14, 14)
+isTrending = adx > adxThreshold
+
+// 2. Hacim Onayı: Sıradan hacimli mumları görmezden gel.
+volSMA = ta.sma(volume, 20)
+isStrongVol = volume > volSMA * volMultiplier
+
+// 3. Kararlı Mum Filtresi: Mumun gövdesi, toplam boyunun %50'sinden büyük olmalı.
+// Bu filtre, kararsız iğne atan mumlarda (Doji vb.) sinyal yakılmasını engeller.
+isDecisive = math.abs(close - open) > (high - low) * 0.5
+
+// 4. Sert Kırılım: Fiyat bandın sadece üstünde değil, biraz dışına taşmalı.
+atr = ta.atr(14)
+breakLong  = ta.crossover(close, a + (atr * atrMult))
+breakShort = ta.crossunder(close, b - (atr * atrMult))
+
+// === TEK SİNYAL DURUM KONTROLÜ ===
+var int trendState = 0 
+
+// ANA SİNYAL MANTIĞI
+buySignal  = breakLong and isStrongVol and isTrending and isDecisive and trendState <= 0
+sellSignal = breakShort and isStrongVol and isTrending and isDecisive and trendState >= 0
+
+if buySignal
+    trendState := 1
+if sellSignal
+    trendState := -1
+
+// === GÖRSELLEŞTİRME (SADE VE NET) ===
+// Kanal Sınırları
+plot(a, color=color.new(color.gray, 85), title="Üst Kanal")
+plot(b, color=color.new(color.gray, 85), title="Alt Kanal")
+
+// Dinamik Trend Hattı
+lineColor = trendState == 1 ? color.new(#00ffbb, 0) : color.new(#ff1100, 0)
+plot(avg, "Dinamik Trend", color=lineColor, linewidth=3)
+
+// Sinyal Etiketleri
+plotshape(buySignal, "AL", location=location.belowbar, color=#00ffbb, style=shape.labelup, text="AL", textcolor=color.black, size=size.small)
+plotshape(sellSignal, "SAT", location=location.abovebar, color=#ff1100, style=shape.labeldown, text="SAT", textcolor=color.white, size=size.small)
+
+// Mum Renklendirme (Trend Takibi İçin)
+barcolor(trendState == 1 ? color.new(#00ffbb, 30) : color.new(#ff1100, 30))
+
+
+
+// ATR
+if atrAutoActive
+    atrVal := ta.atr(atrLength)
+
+// Open trades
+if strategy.opentrades > 0
+    signalActive := false
+else 
+    strategy.cancel_all()
+    signalActive := true
+
+// Calculating time
+if time < calcDate
+    signalActive := false
+
+
+// Filling
+if fillActive
+    hitTP1 := hitTP1 ? true : (tradeSide == "LONG" ? high >= tradeTP1Limit : low <= tradeTP1Limit)
+    hitTP2 := hitTP2 ? true : (tradeSide == "LONG" ? high >= tradeTP2Limit : low <= tradeTP2Limit)
+    hitTP3 := hitTP3 ? true : (tradeSide == "LONG" ? high >= tradeTP3Limit : low <= tradeTP3Limit)
+    hitTP4 := hitTP4 ? true : (tradeSide == "LONG" ? high >= tradeTP4Limit : low <= tradeTP4Limit)
+    hitSL  := hitSL  ? true : (tradeSide == "LONG" ? low <= tradeSL : high >= tradeSL)
+    hitTrail := hitTrail ? true : (tradeSide == "LONG" ? high >= tradeTrailPrice : low <= tradeTrailPrice)
+
+    if hitTP1
+        linefill.new(lineEntry, lineTP1, color = color.new(color.green, 85))
+    if hitTP2
+        linefill.new(lineTP1, lineTP2, color = color.new(color.green, 85))
+    if hitTP3
+        linefill.new(lineTP2, lineTP3, color = color.new(color.green, 85))
+    if hitTP4
+        linefill.new(lineTP3, lineTP4, color = color.new(color.green, 85))
+    if hitSL
+        linefill.new(lineSL, lineEntry, color = color.new(color.red, 85))
+    if hitTrail
+        linefill.new(lineTrail, lineEntry, color = color.new(color.blue, 91))
+
+    if strategy.opentrades == 0
+        hitTP1 := false
+        hitTP2 := false
+        hitTP3 := false
+        hitTP4 := false
+        hitSL  := false
+        hitTrail := false
+        fillActive := false
+
+// Entries
+    // long
+if buySignal and signalMode != "only short"
+    strategy.close("Enter Short")
+    strategy.entry("Enter Long", strategy.long)
+    signalActive := false
+    drawActive := true    
+    tradeSide := "LONG"    
+    tradeEntryPrice := close
+    tradeTP1Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP) : tradeEntryPrice* (1 + tp1Break)
+    tradeTP1Size := tp1QTY * 100
+    tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2Break)
+    tradeTP2Size := tp2QTY * 100
+    tradeTP3Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 + tp3Break)
+    tradeTP3Size := tp3QTY * 100
+    tradeTP4Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 4) : tradeEntryPrice* (1 + tp4Break)
+    tradeTP4Size := tp4QTY * 100
+    tradeSL := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultSL) : tradeEntryPrice* (1 - slBreak)
+    tradeTrailOffset = int((close * trailSize) / syminfo.mintick)
+    tradeTrailPrice := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTrail) : tradeEntryPrice* (1 + trailBreak)
+    // once TP
+    if tpOnceActive 
+        strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+    else 
+        // Проверка на 0 ордера
+        if tp1QTY != 0 and (tp2QTY != 0 or tp3QTY != 0 or tp4QTY != 0) 
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=tradeTP1Size, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+        else if tp1QTY != 0 and (tp2QTY == 0 and tp3QTY == 0 and tp4QTY == 0)
+            strategy.exit("Long TP-1/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-1", comment_loss = "Long: stoploss")
+        
+        if tp2QTY != 0 and (tp3QTY != 0 or tp4QTY != 0)
+            strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=tradeTP2Size, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss")
+        else if tp2QTY != 0 and (tp3QTY == 0 and tp4QTY == 0)
+            strategy.exit("Long TP-2/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-2", comment_loss = "Long: stoploss")
+        
+        if tp3QTY != 0 and tp4QTY != 0
+            strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=tradeTP3Size, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss")
+        else if tp3QTY != 0 and tp4QTY == 0
+            strategy.exit("Long TP-3/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-3", comment_loss = "Long: stoploss")
+        
+        if tp4QTY != 0
+            strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = tradeSL, limit=tradeTP4Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss")
+
+    // short
+if sellSignal and signalMode != "only long"
+    strategy.close("Enter Long")
+    strategy.entry("Enter Short", strategy.short)
+    signalActive := false    
+    drawActive := true
+    tradeSide := "SHORT"    
+    tradeEntryPrice := close
+    tradeTP1Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP) : tradeEntryPrice* (1 - tp1Break)
+    tradeTP1Size := tp1QTY * 100
+    tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2Break)
+    tradeTP2Size := tp2QTY * 100
+    tradeTP3Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 3) : tradeEntryPrice* (1 - tp3Break)
+    tradeTP3Size := tp3QTY * 100
+    tradeTP4Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 4) : tradeEntryPrice* (1 - tp4Break)
+    tradeTP4Size := tp4QTY * 100
+    tradeSL := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultSL) : tradeEntryPrice* (1 + slBreak)
+    tradeTrailOffset = int((close * trailSize) / syminfo.mintick)
+    tradeTrailPrice := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTrail) : tradeEntryPrice* (1 - trailBreak)
+    // once TP
+    if tpOnceActive 
+        strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
+    else 
+        // Проверка на 0 ордера
+        if tp1QTY != 0 and (tp2QTY != 0 or tp3QTY != 0 or tp4QTY != 0) 
+            strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=tradeTP1Size, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
+        else if tp1QTY != 0 and (tp2QTY == 0 and tp3QTY == 0 and tp4QTY == 0)
+            strategy.exit("Short TP-1/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP1Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-1", comment_loss = "Short: stoploss")
+        
+        if tp2QTY != 0 and (tp3QTY != 0 or tp4QTY != 0)
+            strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=tradeTP2Size, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss")
+        else if tp2QTY != 0 and (tp3QTY == 0 and tp4QTY == 0)
+            strategy.exit("Short TP-2/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP2Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-2", comment_loss = "Short: stoploss")
+        
+        if tp3QTY != 0 and tp4QTY != 0
+            strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=tradeTP3Size, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss")
+        else if tp3QTY != 0 and tp4QTY == 0
+            strategy.exit("Short TP-3/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP3Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-3", comment_loss = "Short: stoploss")
+        
+        if tp4QTY != 0
+            strategy.exit("Short TP-4/Trail/SL", from_entry="Enter Short", stop = tradeSL, limit=tradeTP4Limit, trail_price = tradeTrailPrice, trail_offset = tradeTrailOffset, qty_percent=100, comment_trailing = "Short: trail", comment_profit = "Short: TP-4", comment_loss = "Short: stoploss")
+
+// Drawing
+if drawActive
+    drawActive := false
+    barIndexStart := bar_index
+    // Создаем линии 
+    if linesPosActive
+        lineTrail := line.new(x1=barIndexStart, y1=tradeTrailPrice, x2=bar_index, y2=tradeTrailPrice, color=color.blue, style = line.style_dotted, width = 2)
+        lineSL := line.new(x1=barIndexStart, y1=tradeSL, x2=bar_index, y2=tradeSL, color=color.red, style = line.style_dotted, width = 2)
+        lineEntry  := line.new(x1=barIndexStart, y1=tradeEntryPrice, x2=bar_index, y2=tradeEntryPrice, color=color.gray, style = line.style_solid, width = 1)
+        lineTP1 := line.new(x1=barIndexStart, y1=tradeTP1Limit, x2=bar_index, y2=tradeTP1Limit, color=color.green, style = line.style_dotted, width = 2)
+        if not tpOnceActive
+            lineTP2 := line.new(x1=barIndexStart, y1=tradeTP2Limit, x2=bar_index, y2=tradeTP2Limit, color=color.green, style = line.style_dotted, width = 2)
+            lineTP3 := line.new(x1=barIndexStart, y1=tradeTP3Limit, x2=bar_index, y2=tradeTP3Limit, color=color.green, style = line.style_dotted, width = 2)
+            lineTP4 := line.new(x1=barIndexStart, y1=tradeTP4Limit, x2=bar_index, y2=tradeTP4Limit, color=color.green, style = line.style_dotted, width = 2)
+
+if strategy.opentrades > 0
+    // Entry
+    line.set_xy1(lineEntry, barIndexStart, tradeEntryPrice)
+    line.set_xy2(lineEntry, bar_index + 1, tradeEntryPrice)
+    // Trail    
+    line.set_xy1(lineTrail, barIndexStart, tradeTrailPrice)
+    line.set_xy2(lineTrail, bar_index + 1, tradeTrailPrice)
+    // SL
+    line.set_xy1(lineSL, barIndexStart, tradeSL)
+    line.set_xy2(lineSL, bar_index + 1, tradeSL)
+    // TP1
+    line.set_xy1(lineTP1, barIndexStart, tradeTP1Limit)
+    line.set_xy2(lineTP1, bar_index + 1, tradeTP1Limit)
+    // TP2
+    line.set_xy1(lineTP2, barIndexStart, tradeTP2Limit)
+    line.set_xy2(lineTP2, bar_index + 1, tradeTP2Limit)
+    // TP3
+    line.set_xy1(lineTP3, barIndexStart, tradeTP3Limit)
+    line.set_xy2(lineTP3, bar_index + 1, tradeTP3Limit)
+    // TP4
+    line.set_xy1(lineTP4, barIndexStart, tradeTP4Limit)
+    line.set_xy2(lineTP4, bar_index + 1, tradeTP4Limit)
+
+    fillActive := true
