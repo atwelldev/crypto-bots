@@ -808,11 +808,11 @@ varip bool corShiftShort = false
 varip bool corShiftWait = false
 varip bool canDraw = false
 
-if strategy.opentrades > 0
-    canSignal := false
-else 
-    strategy.cancel_all()
-    canSignal := true
+// if strategy.opentrades > 0
+//     canSignal := false
+// else 
+//     strategy.cancel_all()
+//     canSignal := true
 
 
 // Corrective shift
@@ -1004,7 +1004,7 @@ if (buySignal and na(trade) and canSignal and strDirection != "only short" and l
     tradeEntryPrice := close
     
 
-    canSignal := false
+    // canSignal := false
     tradeTP1Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP) : tradeEntryPrice* (1 + tp1_percent)
     tradeTP1Size := tp1_percent_fix * 100
     tradeTP2Limit := atrAutoActive ? tradeEntryPrice + (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 + tp2_percent)
@@ -1053,7 +1053,7 @@ if (sellSignal and na(trade) and canSignal and strDirection != "only long" and s
     strategy.entry("Enter Short", strategy.short)
     canDraw := true
     tradeEntryPrice := close
-    canSignal := false
+    // canSignal := false
     tradeTP1Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP) : tradeEntryPrice* (1 - tp1_percent)
     tradeTP1Size := tp1_percent_fix * 100
     tradeTP2Limit := atrAutoActive ? tradeEntryPrice - (atrVal * atrMultTP * 2) : tradeEntryPrice* (1 - tp2_percent)
