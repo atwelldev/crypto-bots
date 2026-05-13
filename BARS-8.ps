@@ -284,7 +284,7 @@ line_style = line.style_dotted
 
 
 //@version=5
-strategy(title='BARS-8 v1.25.0', shorttitle='BARS-8 v1.25.0', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title='BARS-8 v1.25.0', shorttitle='BARS-8 v1.25.0', calc_on_every_tick = false, process_orders_on_close = true, overlay=true, max_lines_count = 500, max_labels_count = 500)
 import TradingView/Strategy/3
 
 // YUSUF
@@ -877,56 +877,36 @@ varip bool shortRSIChange = false
 varip float currentRSI = na
 
 currentRSI := ta.rsi(close, len)
-currentRSIAddl = useTFRSI ? request.security(syminfo.tickerid, TFRSI, ta.rsi(close, TFRSILen)) : na
 
-if useTFRSI
-    if modeRSI == "Overbought-buy, oversold-sell" and useRSI == true
-        longRSI := (currentRSI > overbought and currentRSIAddl > overbought) or useRSI == false
-        shortRSI := (currentRSI < oversold and currentRSIAddl < oversold) or useRSI == false
-    else if modeRSI == "Overbought-sell, oversold-buy" and useRSI == true
-        if (currentRSI < oversold and currentRSIAddl < oversold) or longRSIChange
-            longRSI := true
-            shortRSI := false
-            longRSIChange := true
-            shortRSIChange := false
-        
-        if (currentRSI >= 50 and currentRSIAddl >= 50)
-            longRSI := false
-            longRSIChange := false
+if modeRSI == 'Overbought-buy, oversold-sell' and useRSI == true
+    longRSI := currentRSI > overbought or useRSI == false
+    shortRSI := currentRSI < oversold or useRSI == false
+    shortRSI
+else if modeRSI == 'Overbought-sell, oversold-buy' and useRSI == true
+    if currentRSI < oversold or longRSIChange
+        longRSI := true
+        shortRSI := false
+        longRSIChange := true
+        shortRSIChange := false
+        shortRSIChange
 
-        if (currentRSI > overbought and currentRSIAddl > overbought) or shortRSIChange
-            shortRSI :=  true
-            longRSI := false
-            longRSIChange := false
-            shortRSIChange := true
-        
-        if (currentRSI <= 50 and currentRSIAddl <= 50)
-            shortRSI := false
-            shortRSIChange := false
-else 
-    if modeRSI == "Overbought-buy, oversold-sell" and useRSI == true
-        longRSI := currentRSI > overbought or useRSI == false
-        shortRSI := currentRSI < oversold or useRSI == false
-    else if modeRSI == "Overbought-sell, oversold-buy" and useRSI == true
-        if currentRSI < oversold or longRSIChange
-            longRSI := true
-            shortRSI := false
-            longRSIChange := true
-            shortRSIChange := false
-        
-        if currentRSI >= 50
-            longRSI := false
-            longRSIChange := false
+    if currentRSI >= 50
+        longRSI := false
+        longRSIChange := false
+        longRSIChange
 
-        if currentRSI > overbought or shortRSIChange
-            shortRSI :=  true
-            longRSI := false
-            longRSIChange := false
-            shortRSIChange := true
-        
-        if currentRSI <= 50
-            shortRSI := false
-            shortRSIChange := false
+    if currentRSI > overbought or shortRSIChange
+        shortRSI := true
+        longRSI := false
+        longRSIChange := false
+        shortRSIChange := true
+        shortRSIChange
+
+    if currentRSI <= 50
+        shortRSI := false
+        shortRSIChange := false
+        shortRSIChange
+
 // plot(longRSI ? 1 : 0)
 // plot(shortRSI ? 1 : 0)
 // plot(currentRSI)
