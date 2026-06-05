@@ -989,6 +989,14 @@ if holdPos
         strategy.cancel_all()
         canSignal := true
         canSignal
+else 
+    if strategy.opentrades > 0
+        canSignal := true
+        canSignal
+    else
+        strategy.cancel_all()
+        canSignal := true
+        canSignal
 
 
 
