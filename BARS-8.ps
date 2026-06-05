@@ -309,7 +309,7 @@ line_style = line.style_dotted
 
 
 //@version=6
-strategy(title = 'BARS-8 v1.7.0-LTS', shorttitle = 'BARS-8 v1.7.0-LTS', calc_on_every_tick = false, process_orders_on_close = true, overlay = true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title = 'BARS-8 v1.9.0-LTS', shorttitle = 'BARS-8 v1.9.0-LTS', calc_on_every_tick = false, process_orders_on_close = false, overlay = true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
 import TradingView/Strategy/3
 
 //---------------------------------------------------SETTINGS----------------------------------------------------------\\
@@ -367,24 +367,34 @@ strategy_input = 'MANUAL'
 // POSITION
 posMode = input.string(title = 'Entry mode (directions)', options = ['long/short', 'only long', 'only short', 'auto'], defval = 'long/short', group = POSITION, tooltip = 'en: Available directions of position\n\nru: Доступные направления позиции')
 int autoLength = input.int(defval = 240, title = 'Trend length for auto mode (bars)', minval = 15, step = 5, group = POSITION, tooltip = 'en: If auto mode is chosen, strategy calculates middle term trend (by defined size of trend) and decide, what\'s kind of entries (long or short) should be used \n\nru: Если выбран автоматическией режим, то стратегия вычисляет среднесрочный тренд (на основе указанного кол-ва баров) и решает, в какую позицию (лонг или шорт) входить') // Length for the moving average calculations
+bool holdPos = input(title = 'Hold the position', defval = true, group = POSITION)
+start_date_input = input.time(defval = timestamp('12 June 2024'), title = 'Calculating date', group = POSITION, tooltip = 'en: If \'Use max profit\' or \'Use max drawdown\' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны \'Use max profit\' или \'Use max drawdown\', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)')
+
+// YUSUF INPUTS
+length         = input.int(180, "Channel deep", group = POSITION)
+adxThreshold   = input.int(25, "ADX threshold", group = POSITION)
+volMultiplier  = input.float(1.7, "Volume multiplier", step=0.1, group = POSITION)
+atrMult        = input.float(0.2, "ATR multiplier", step=0.01, group = POSITION)
+
+// Raptor filters
 
 // useNewSignal = input.bool(title = "Use new signal", defval = false, group = POSITION)
-useRaptorSignal = input(title = 'Use raptor filter', defval = true, group = POSITION)
+useRaptorSignal = input(title = 'Use EXTRA VOLUME', defval = true, group = "EXTRA VOLUME")
 // rr = input.float(2.0, title='Risk Reward', group='NEW SIGNAL')
 // sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
-vc = input.float(defval = 2.0, step = 0.05, title = 'Factor', group = POSITION)
+vc = input.float(defval = 2.0, step = 0.05, title = 'Factor', group = "EXTRA VOLUME")
 // vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
 // vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
-vklfbar = input(title = 'Entry bar filter', defval = true, group = POSITION)
-vklca = input(title = 'Price smoothing', defval = true, group = POSITION)
-vklfvol = input(title = 'Volume comparing', defval = true, group = POSITION)
+vklfbar = input(title = 'Entry bar filter', defval = true, group = "EXTRA VOLUME")
+vklca = input(title = 'Price smoothing', defval = true, group = "EXTRA VOLUME")
+vklfvol = input(title = 'Volume comparing (anomaly)', defval = true, group = "EXTRA VOLUME")
 // vklca = true
 // vklfrsi = input(title='Enable RSI filter', defval=true, group='NEW SIGNAL')
 // vklfvol = true
 // vklfbar = true
 
 
-start_date_input = input.time(defval = timestamp('12 June 2024'), title = 'Calculating date', group = POSITION, tooltip = 'en: If \'Use max profit\' or \'Use max drawdown\' is enabled, you should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Если выбраны \'Use max profit\' или \'Use max drawdown\', то вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)')
+
 
 show_tp_enty_sl = input.bool(defval = true, title = 'Show position lines', group = POSITION, inline = '2.1')
 show_strategy_panel = input.bool(defval = true, title = 'Show settings panel', group = POSITION, inline = '2.1')
@@ -423,7 +433,7 @@ trailStartPercent := trailStartPercent / 100
 // Correction shift
 useCorShift = input.bool(defval = false, title = 'Use corrective shift', group = 'CORRECTIVE SHIFT', tooltip = 'en: To open positions after correction. The strategy waits for the price to cross the entry price (by signal) by the specified percentage then opens position. Waiting for correction ends if a new signal is received or the price has crossed the 1 TP level.\n\nru: Открывать позицию после коррекции. Стратегия ждет, когда цена пересечет изначальную цену входа (от сигнала) на указанный %, затем открывает позицию. Ожидание коррекции прекращается, если был получен новый сигнал или цена пересекла уровень 1-TP')
 corShiftMode = input.string(title = 'Move or not TP/SL', defval = 'Move TP/SL', options = ['Move TP/SL', 'Don\'t move TP/SL'], group = 'CORRECTIVE SHIFT', tooltip = 'en: Move or not TP/SL levels after entry. If \'Don\'t move TP/SL\' is chosen, doesn\'t open positions in case that current price is crossing SL while waiting for correction\n\nru: Перемещать или нет уровни TP/SL. Если режим \'Don\'t move TP/SL\' выбран, не открывает позицию, если цена пересекает уровень SL при ожидании коррекции')
-corShiftSize = input.float(defval = 0.01, title = 'Corrective  shift size (%)', group = 'CORRECTIVE SHIFT', step = 0.05, minval = 0)
+corShiftSize = input.float(defval = 0.01, title = 'Corrective  shift size (%)', group = 'CORRECTIVE SHIFT', step = 0.01, minval = 0)
 corShiftSize := corShiftSize / 100
 useCorShiftAuto = input.bool(defval = false, title = 'Auto corrective shift size', group = 'CORRECTIVE SHIFT', tooltip = 'en: Correction size will be calculated automatically by Fibonacci zones.\n\nru: Величина коррекции будет рассчитана автоматически по зонам Фибоначчи')
 // corShiftAutoFibo = input.string(defval = "AlgoFibo: 0.236-0.786", options = ["AlgoFibo: 0.236-0.786", "AlgoFibo: 0.296-0.704", "AlgoFibo: 0.386-0.618"],  title = "Fibo zones for auto cor. size", group = "CORRECTIVE SHIFT")
@@ -442,16 +452,9 @@ oversold = input.int(title = 'Oversold', defval = 30, minval = 0, maxval = 50, s
 len = input(title = 'Length (bars)', defval = 14, group = rsi_group)
 
 
-// MAX DEPOLOSS,DRAWDOWN & PROFIT
-useMaxDrawdown = input.bool(defval = false, title = 'Stop on max drawdown', group = 'STOP ON MAX LOSS, DRAWDOWN & PROFIT', tooltip = 'en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)')
-maxDrawdown = input.float(defval = 0, title = 'Max drawdown (%)', group = 'STOP ON MAX LOSS, DRAWDOWN & PROFIT', step = 0.01, minval = 0)
-
-useMaxDepoLoss = input.bool(defval = false, title = 'Stop on max deposit loss', group = 'STOP ON MAX LOSS, DRAWDOWN & PROFIT', tooltip = 'en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)')
-maxDepoLoss = input.float(defval = 0, title = 'Max deposit loss (%)', group = 'STOP ON MAX LOSS, DRAWDOWN & PROFIT', step = 0.01, minval = 0)
-
-useMaxProfit = input.bool(defval = false, title = 'Stop on max profit', group = 'STOP ON MAX LOSS, DRAWDOWN & PROFIT', tooltip = 'en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)')
-maxProfit = input.float(defval = 0, title = 'Max profit (%)', group = 'STOP ON MAX LOSS, DRAWDOWN & PROFIT', step = 0.01, minval = 0)
-
+// MAX LOSS
+useMaxRowLoss = input.bool(defval = false, title = "Stop on max loss trades in a row", group = "STOP ON LOSS", tooltip = "en: Stops trading with alert (Then, you should to restart strategy manually). You should to set calculating time to the current before starting real-time trading (to avoid strategy blocking)\n\nru: Останавливает торговлю и отправляет сообщение (alert) (после, необходимо перезапустить стратегию вручную). Вам следует установить рассчетное время на текущее перед тем, как начинать торговлю в реальном времени (чтобы избежать блокировки работы стратегии)")
+maxRowLoss = input.int(defval = 2, title = "Max loss trades in a row", group = "STOP ON LOSS", step = 1, minval = 0)
 
 // INFO PANEL
 // show_profit_panel = input.bool(defval = true, title = "Show profit panel", group = info_panel_group)
@@ -471,10 +474,10 @@ show_dev_labels = false
 //@version=6
 
 // === GİRİŞLER (Senin Test Ettiğin Ayarlar Sabitlendi) ===
-length         = input.int(180, "Kanal Derinliği (Geniş Bakış) - Глубина канала")
-adxThreshold   = input.int(25, "Trend Gücü (ADX Filtresi) - Мощность тренда (фильтр ADX)")
-volMultiplier  = input.float(1.7, "Hacim Eşiği - Порог объема", step=0.1)
-atrMult        = input.float(0.2, "Kırılım Hassasiyeti (ATR) - Множитель ATR", step=0.01)
+// length         = input.int(180, "Channel deep")
+// adxThreshold   = input.int(25, "ADX threshold")
+// volMultiplier  = input.float(1.7, "Volume multiplier", step=0.1)
+// atrMult        = input.float(0.2, "ATR multiplier", step=0.01)
 
 // === G-CHANNEL HESAPLAMA ===
 var float a = na
@@ -976,13 +979,18 @@ varip bool corShiftShort = false
 varip bool corShiftWait = false
 varip bool canDraw = false
 
-if strategy.opentrades > 0
-    canSignal := false
-    canSignal
-else
-    strategy.cancel_all()
-    canSignal := true
-    canSignal
+// POS HOLDING
+
+if holdPos 
+    if strategy.opentrades > 0
+        canSignal := false
+        canSignal
+    else
+        strategy.cancel_all()
+        canSignal := true
+        canSignal
+
+
 
 
 // Corrective shift
@@ -1087,27 +1095,19 @@ else if modeRSI == 'Overbought-sell, oversold-buy' and useRSI == true
 // plot(currentRSI)
 
 // Max profit and drawdown
-equity = strategy.initial_capital + strategy.netprofit + strategy.openprofit // текущий капитал
+var int rowLossCount = 0
 
-if useMaxDepoLoss and equity <= strategy.initial_capital
-    if math.abs((strategy.initial_capital - equity) / (strategy.initial_capital / 100)) >= maxDepoLoss
-        canSignal := false
-        corShiftLong := false
-        corShiftShort := false
-        alert('Max deposit loss is detected! Please, restart the strategy')
+if strategy.losstrades > strategy.losstrades[1]
+    rowLossCount += 1
 
-if useMaxProfit and equity >= strategy.initial_capital
-    if math.abs((equity - strategy.initial_capital) / (strategy.initial_capital / 100)) >= maxProfit
-        canSignal := false
-        corShiftLong := false
-        corShiftShort := false
-        alert('Max profit is reached! Please, restart the strategy')
+if strategy.wintrades > strategy.wintrades[1]
+    rowLossCount := 0
 
-if useMaxDrawdown and strategy.max_drawdown_percent >= maxDrawdown
+if useMaxRowLoss and rowLossCount == maxRowLoss
     canSignal := false
     corShiftLong := false
     corShiftShort := false
-    alert('Max drawdown is detected! Please, restart the strategy')
+    alert("Max number of loss trades in a row is detected! Please, restart the strategy")    
 
 // plot(maxDrawdown)
 // plot(strategy.max_drawdown_percent)
@@ -1559,18 +1559,6 @@ if show_strategy_panel
     table.cell(strategy_table, 4, 13, str.tostring(oversold), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
     table.cell(strategy_table, 3, 14, 'RSI-length:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
     table.cell(strategy_table, 4, 14, str.tostring(len), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 15, 'Stop on max drawdown:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 15, str.tostring(useMaxDrawdown), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 16, 'Max drawdown %:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 10, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 16, str.tostring(maxDrawdown) + '%', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 17, 'Stop on max depo loss:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 17, str.tostring(useMaxDepoLoss), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 18, 'Max depo loss %:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 18, str.tostring(maxDepoLoss) + '%', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 19, 'Stop on max profit:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 19, str.tostring(useMaxProfit), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
-    table.cell(strategy_table, 3, 20, 'Max profit %:', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 8, height = 3, text_size = size.normal, text_halign = text.align_left)
-    table.cell(strategy_table, 4, 20, str.tostring(maxProfit) + '%', bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 // table.cell(strategy_table, 3, 18, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
 // table.cell(strategy_table, 4, 18, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 
@@ -1579,4 +1567,4 @@ if show_strategy_panel
 // table.cell(strategy_table, 3, 16, "Fill position:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal, text_halign = text.align_left)
 // table.cell(strategy_table, 4, 16, str.tostring(fill_positions), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
 // table.cell(strategy_table, 1, 16, "Show position lines:", bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 12, height = 3, text_size = size.normal, text_halign = text.align_left)
-// table.cell(strategy_table, 2, 16, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal)
+// table.cell(strategy_table, 2, 16, str.tostring(show_tp_enty_sl), bgcolor = color.rgb(0, 0, 0, 87), text_color = color.gray, width = 5, height = 3, text_size = size.normal
