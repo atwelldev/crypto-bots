@@ -379,7 +379,7 @@ atrMult        = input.float(0.2, "ATR multiplier", step=0.01, group = POSITION)
 // Raptor filters
 
 // useNewSignal = input.bool(title = "Use new signal", defval = false, group = POSITION)
-useRaptorSignal = input(title = 'Use EXTRA VOLUME', defval = true, group = "EXTRA VOLUME")
+useRaptorSignal = input(title = 'Use EXTRA VOLUME', defval = false, group = "EXTRA VOLUME")
 // rr = input.float(2.0, title='Risk Reward', group='NEW SIGNAL')
 // sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
 vc = input.float(defval = 2.0, step = 0.05, title = 'Factor', group = "EXTRA VOLUME")
