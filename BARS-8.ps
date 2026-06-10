@@ -309,7 +309,7 @@ line_style = line.style_dotted
 
 
 //@version=6
-strategy(title = 'BARS-8 v1.9.0-LTS', shorttitle = 'BARS-8 v1.9.0-LTS', calc_on_every_tick = false, process_orders_on_close = false, overlay = true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
+strategy(title = 'BARS-8 v1.25.6 LTS', shorttitle = 'BARS-8 v1.25.6 LTS', calc_on_every_tick = false, process_orders_on_close = false, overlay = true, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1)
 import TradingView/Strategy/3
 
 //---------------------------------------------------SETTINGS----------------------------------------------------------\\
@@ -379,20 +379,25 @@ atrMult        = input.float(0.2, "ATR multiplier", step=0.01, group = POSITION)
 // Raptor filters
 
 // useNewSignal = input.bool(title = "Use new signal", defval = false, group = POSITION)
-useRaptorSignal = input(title = 'Use EXTRA VOLUME', defval = false, group = "EXTRA VOLUME")
+useRaptorSignal = input(title = 'Use VSA', defval = false, group = "VSA")
 // rr = input.float(2.0, title='Risk Reward', group='NEW SIGNAL')
 // sdelta = input.int(10, title='Stop Tick Delta', group='NEW SIGNAL')
-vc = input.float(defval = 2.0, step = 0.05, title = 'Factor', group = "EXTRA VOLUME")
+vc = input.float(defval = 2.0, step = 0.05, title = 'Factor', group = "VSA")
 // vkllong = input(title='Enable Long', defval=true, group='NEW SIGNAL')
 // vklshort = input(title='Enable Short', defval=true, group='NEW SIGNAL')
-vklfbar = input(title = 'Entry bar filter', defval = true, group = "EXTRA VOLUME")
-vklca = input(title = 'Price smoothing', defval = true, group = "EXTRA VOLUME")
-vklfvol = input(title = 'Volume comparing (anomaly)', defval = true, group = "EXTRA VOLUME")
+vklfbar = input(title = 'Entry bar filter', defval = true, group = "VSA")
+vklca = input(title = 'Price smoothing', defval = true, group = "VSA")
+vklfvol = input(title = 'Volume comparing', defval = true, group = "VSA")
 // vklca = true
 // vklfrsi = input(title='Enable RSI filter', defval=true, group='NEW SIGNAL')
 // vklfvol = true
 // vklfbar = true
 
+// VOLUMES
+useVolAnomaly = input.bool(defval = false, title='Use volume "Anomaly"', group = "VOLUMES")
+volAnomalyReverse = input.bool(defval = false, title='Reverse volume', group = "VOLUMES", tooltip = "Если включено: вход если объем больше предыдущего, (если отключено, но вход если объем меньше предыдущего")
+volAnomalyMult = input.float(defval = 2.0, step = 0.05, title='Volume multiplier', group = "VOLUMES")
+volAnomalySMALen = input.int(defval = 20, step = 1, title='SMA length', group = "VOLUMES")
 
 
 
@@ -536,6 +541,16 @@ plotshape(canShortNew, "SAT", location=location.abovebar, color=#ff1100, style=s
 barcolor(trendState == 1 ? color.new(#00ffbb, 30) : color.new(#ff1100, 30))
 
 // ///////////////////////////////////////////////////////////////////
+
+// ANOMALY
+var bool volAnomaly = false
+
+if useVolAnomaly and volAnomalyReverse == false 
+    averageVolume = ta.sma(volume, volAnomalySMALen)
+    volAnomaly := volume < (averageVolume*volAnomalyMult)
+else if useVolAnomaly and volAnomalyReverse
+    averageVolume = ta.sma(volume, volAnomalySMALen)
+    volAnomaly := volume > (averageVolume*volAnomalyMult)
 
 
 // RAPTOR
@@ -1135,7 +1150,7 @@ else if strDirection == 'only short'
     canLongNew
 
 // Entries
-if canLongNew and (useRaptorSignal == false or raptorLong) and na(trade) and canSignal and strDirection != 'only short' and longRSI or tradeSide == 'LONG' and corShiftLong and corShiftShort == false
+if canLongNew and (useRaptorSignal == false or raptorLong) and (useVolAnomaly == false or volAnomaly) and na(trade) and canSignal and strDirection != 'only short' and longRSI or tradeSide == 'LONG' and corShiftLong and corShiftShort == false
     tradeSide := 'LONG'
     canDrawCor := false
 
@@ -1200,7 +1215,7 @@ if canLongNew and (useRaptorSignal == false or raptorLong) and na(trade) and can
 // if tp4_percent_fix != 0
 //     strategy.exit("Long TP-4/Trail/SL", from_entry="Enter Long", stop = fixed_stop ? entryPrice* (1 - sl_percent) : fib_786, limit=entryPrice* (1 + tp4_percent), trail_price = trailPrice, trail_offset = trailOffset, qty_percent=100, comment_trailing = "Long: trail", comment_profit = "Long: TP-4", comment_loss = "Long: stoploss" )
 
-if canShortNew and (useRaptorSignal == false or raptorShort) and na(trade) and canSignal and strDirection != 'only long' and shortRSI or tradeSide == 'SHORT' and corShiftShort and corShiftLong == false
+if canShortNew and (useRaptorSignal == false or raptorShort) and (useVolAnomaly == false or volAnomaly) and na(trade) and canSignal and strDirection != 'only long' and shortRSI or tradeSide == 'SHORT' and corShiftShort and corShiftLong == false
     tradeSide := 'SHORT'
     canDrawCor := false
     if useCorShift and corShiftShort == false
